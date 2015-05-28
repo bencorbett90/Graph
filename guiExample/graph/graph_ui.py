@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'graph/graph.ui'
 #
-# Created: Wed May 27 21:06:55 2015
+# Created: Wed May 27 21:46:54 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,19 +26,28 @@ except AttributeError:
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(638, 447)
+        MainWindow.resize(595, 420)
         self.centralwidget = QtGui.QWidget(MainWindow)
         self.centralwidget.setObjectName(_fromUtf8("centralwidget"))
+        self.horizontalLayout = QtGui.QHBoxLayout(self.centralwidget)
+        self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
         self.loadFileButton = QtGui.QPushButton(self.centralwidget)
-        self.loadFileButton.setGeometry(QtCore.QRect(30, 180, 75, 23))
+        self.loadFileButton.setMaximumSize(QtCore.QSize(75, 25))
         self.loadFileButton.setCheckable(False)
         self.loadFileButton.setObjectName(_fromUtf8("loadFileButton"))
+        self.horizontalLayout.addWidget(self.loadFileButton)
         self.plot = PlotWidget(self.centralwidget)
-        self.plot.setGeometry(QtCore.QRect(150, 10, 441, 381))
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.plot.sizePolicy().hasHeightForWidth())
+        self.plot.setSizePolicy(sizePolicy)
+        self.plot.setSizeIncrement(QtCore.QSize(1, 1))
         self.plot.setObjectName(_fromUtf8("plot"))
+        self.horizontalLayout.addWidget(self.plot)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 638, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 595, 21))
         self.menubar.setObjectName(_fromUtf8("menubar"))
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtGui.QStatusBar(MainWindow)
