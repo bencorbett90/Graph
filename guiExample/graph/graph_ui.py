@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'graph/graph.ui'
 #
-# Created: Wed May 27 19:14:04 2015
+# Created: Wed May 27 21:06:55 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -29,10 +29,10 @@ class Ui_MainWindow(object):
         MainWindow.resize(638, 447)
         self.centralwidget = QtGui.QWidget(MainWindow)
         self.centralwidget.setObjectName(_fromUtf8("centralwidget"))
-        self.calculate = QtGui.QPushButton(self.centralwidget)
-        self.calculate.setGeometry(QtCore.QRect(30, 180, 75, 23))
-        self.calculate.setCheckable(False)
-        self.calculate.setObjectName(_fromUtf8("calculate"))
+        self.loadFileButton = QtGui.QPushButton(self.centralwidget)
+        self.loadFileButton.setGeometry(QtCore.QRect(30, 180, 75, 23))
+        self.loadFileButton.setCheckable(False)
+        self.loadFileButton.setObjectName(_fromUtf8("loadFileButton"))
         self.plot = PlotWidget(self.centralwidget)
         self.plot.setGeometry(QtCore.QRect(150, 10, 441, 381))
         self.plot.setObjectName(_fromUtf8("plot"))
@@ -50,6 +50,6 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow", None))
-        self.calculate.setText(_translate("MainWindow", "Calculate", None))
+        self.loadFileButton.setText(_translate("MainWindow", "Load File", None))
 
 from pyqtgraph import PlotWidget
