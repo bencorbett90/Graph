@@ -12,6 +12,9 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.calculate.clicked.connect(self.square)
  
     def square(self):
+        """ Reads in a line from LINE_X, and writes it's square to
+        	LINE_X2. """
+        	
         val = float(self.line_x.text())
         self.line_x2.setText(str(val * val))
  
