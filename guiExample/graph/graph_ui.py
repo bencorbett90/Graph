@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'graph/graph.ui'
 #
-# Created: Wed May 27 21:46:54 2015
+# Created: Mon Jun 01 18:19:11 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -31,11 +31,6 @@ class Ui_MainWindow(object):
         self.centralwidget.setObjectName(_fromUtf8("centralwidget"))
         self.horizontalLayout = QtGui.QHBoxLayout(self.centralwidget)
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
-        self.loadFileButton = QtGui.QPushButton(self.centralwidget)
-        self.loadFileButton.setMaximumSize(QtCore.QSize(75, 25))
-        self.loadFileButton.setCheckable(False)
-        self.loadFileButton.setObjectName(_fromUtf8("loadFileButton"))
-        self.horizontalLayout.addWidget(self.loadFileButton)
         self.plot = PlotWidget(self.centralwidget)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
@@ -46,19 +41,39 @@ class Ui_MainWindow(object):
         self.plot.setObjectName(_fromUtf8("plot"))
         self.horizontalLayout.addWidget(self.plot)
         MainWindow.setCentralWidget(self.centralwidget)
-        self.menubar = QtGui.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 595, 21))
-        self.menubar.setObjectName(_fromUtf8("menubar"))
-        MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtGui.QStatusBar(MainWindow)
         self.statusbar.setObjectName(_fromUtf8("statusbar"))
         MainWindow.setStatusBar(self.statusbar)
+        self.menubar = QtGui.QMenuBar(MainWindow)
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 595, 21))
+        self.menubar.setObjectName(_fromUtf8("menubar"))
+        self.menuFile = QtGui.QMenu(self.menubar)
+        self.menuFile.setObjectName(_fromUtf8("menuFile"))
+        MainWindow.setMenuBar(self.menubar)
+        self.actionFile = QtGui.QAction(MainWindow)
+        self.actionFile.setObjectName(_fromUtf8("actionFile"))
+        self.file_open = QtGui.QAction(MainWindow)
+        self.file_open.setObjectName(_fromUtf8("file_open"))
+        self.actionSave = QtGui.QAction(MainWindow)
+        self.actionSave.setObjectName(_fromUtf8("actionSave"))
+        self.file_update = QtGui.QAction(MainWindow)
+        self.file_update.setObjectName(_fromUtf8("file_update"))
+        self.menuFile.addAction(self.file_open)
+        self.menuFile.addAction(self.file_update)
+        self.menubar.addAction(self.menuFile.menuAction())
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow", None))
-        self.loadFileButton.setText(_translate("MainWindow", "Load File", None))
+        self.menuFile.setTitle(_translate("MainWindow", "&File", None))
+        self.actionFile.setText(_translate("MainWindow", "&File", None))
+        self.actionFile.setShortcut(_translate("MainWindow", "F", None))
+        self.file_open.setText(_translate("MainWindow", "&Open", None))
+        self.file_open.setShortcut(_translate("MainWindow", "Ctrl+O", None))
+        self.actionSave.setText(_translate("MainWindow", "Save", None))
+        self.actionSave.setShortcut(_translate("MainWindow", "Ctrl+S", None))
+        self.file_update.setText(_translate("MainWindow", "Update", None))
 
 from pyqtgraph import PlotWidget
