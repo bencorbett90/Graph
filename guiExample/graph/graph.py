@@ -16,8 +16,22 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         QtGui.QMainWindow.__init__(self, parent)
         self.setupUi(self)
 
+        # Default Fields
+        self.updateFilePath = None
+        self.filePath = None
+        self.lineColor = pqg.mkColor(0, 0, 0, 255)
+        self.pointColor = pqg.mkColor(0, 0, 0, 255)
+        self.backgroundColor = pqg.mkColor(255, 255, 255, 100)
+        self.axisColor = pqg.mkColor(0, 0, 0, 255)
+        self.xVals = np.empty((0, 0))
+        self.yVals = np.empty((0, 0))
+        self.pointSize = 3
+        self.lineSize = 3
+
+        # Connecting the open file menu option
         self.file_open.triggered.connect(self.loadPlot)
-            
+        
+        # Connecting the update menu option. Starts the polling on a new thread.
         u = lambda: thread.start_new_thread(self.updatePlot, ())
         self.file_update.triggered.connect(u)
         
@@ -32,17 +46,6 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         # Add the grid, and get rid of the autoscale button.
         self.plot.getPlotItem().showGrid(True, True, 1)
         self.plot.getPlotItem().hideButtons()
-
-        self.updateFilePath = None
-        self.filePath = None
-        self.lineColor = pqg.mkColor(0, 0, 0, 255)
-        self.pointColor = pqg.mkColor(0, 0, 0, 255)
-        self.backgroundColor = pqg.mkColor(255, 255, 255, 100)
-        self.axisColor = pqg.mkColor(0, 0, 0, 255)
-        self.xVals = np.empty((0, 0))
-        self.yVals = np.empty((0, 0))
-        self.pointSize = 3
-        self.lineSize = 3
 
         # Initializing the spin boxes:
         self.updateRangeBoxes()
@@ -84,11 +87,6 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.slider_pointSize.setValue(self.pointSize * 10)
 
 
-        self.plot.getPlotItem().getAxis('bottom').linkedView().setBackgroundColor(self.pointColor)
-
-
-
-
     def updatePlot(self):
         """ Allows the user to select an update file, which will tell the program to track
             a file and display any changes. The file must be in the format of a number signifing
@@ -120,7 +118,6 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
             time.sleep(1)
 
 
-
     def plotFile(self, filePath, connect = True):
         """Plot the file at FILEPATH."""
         
@@ -149,6 +146,7 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.plotFile(filePath)
 
     def setRange(self):
+        """ Sets the range of the graph to the values in the spin boxes. """
         x_min = self.spin_x_min.value()
         x_max = self.spin_x_max.value()
         y_min = self.spin_y_min.value()
@@ -158,6 +156,7 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.plot.enableAutoRange(enable = False)
 
     def autoScaleX(self):
+        """ Auto scales the x axis such that all item are viewable. """
         x_maxRange, y_maxRange = self.plot.getPlotItem().getViewBox().childrenBounds()
         if x_maxRange == None:
             return
@@ -165,6 +164,7 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.plot.setRange(xRange = x_maxRange, padding = False)
 
     def autoScaleY(self):
+        """ Auto scales the y axis such that all item are viewable. """
         x_maxRange, y_maxRange = self.plot.getPlotItem().getViewBox().childrenBounds()
         if y_maxRange == None:
             return
@@ -172,6 +172,7 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.plot.setRange(yRange = y_maxRange, padding = False)
 
     def updateRangeBoxes(self):
+        """ Sets the values of the spin boxes to the current viewable range."""
         ((x_min, x_max), (y_min, y_max)) = self.plot.viewRange()
         self.spin_x_min.setValue(float(x_min))
         self.spin_x_max.setValue(float(x_max))
@@ -179,6 +180,8 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.spin_y_max.setValue(float(y_max))
 
     def setAutoScale(self):
+        """ Toggles auto scale, which constantly updates the viewable range such that all
+        items are within view."""
         enable = self.checkBox_autoScale.isChecked()
         self.plot.enableAutoRange(enable = enable)
 
@@ -199,6 +202,7 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
             # print("hide")
 
     def showPoints(self):
+        """ Toggles points on or off. """
         enable = self.checkBox_points.isChecked()
         if not enable:
             self.plotScatter.setSize(0)
@@ -206,6 +210,7 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
             self.plotScatter.setSize(self.pointSize)
 
     def showGrid(self):
+        """ Toggles the grid on or off. """
         enable = self.checkBox_grid.isChecked()
         if enable:
             self.plot.getPlotItem().getAxis('left').setGrid(255)
@@ -226,10 +231,12 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.lineColor = self.btn_color2.color()
         self.plotCurve.setPen(color = self.lineColor, width = self.lineSize)
 
+
     def setPointColor(self):
         """ Sets the point color to the value of BTN_COLOR3. """
         self.pointColor = self.btn_color3.color()
         self.plotScatter.setPen(self.pointColor)
+
 
     def setAxisColor(self):
         """ Sets the axis color to the value of btn_color4. """
@@ -237,7 +244,9 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.plot.getPlotItem().getAxis('left').setPen(self.axisColor)
         self.plot.getPlotItem().getAxis('bottom').setPen(self.axisColor)
 
+
     def popup_menu(self):
+        """Creates a drop down menu for the selection of shapes."""
         popup = QtGui.QMenu()
     
         popup.addAction("Circle").triggered.connect(self.setPointsCircle)
@@ -248,25 +257,32 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         popup.exec_(self.list_pointShapes.get_last_pos())
 
     def setPointsCircle(self):
+        """ Sets the points to circles."""
         self.plotScatter.setSymbol(symbol = 'o')
     
     def setPointsSquare(self):
+        """ Sets the points to squares."""
         self.plotScatter.setSymbol(symbol = 's')
     
     def setPointsTriangle(self):
+        """ Sets the points to triangles."""
         self.plotScatter.setSymbol(symbol = 't')
     
     def setPointsDiamond(self):
+        """ Sets the points to diamonds."""
         self.plotScatter.setSymbol(symbol = 'd')
     
     def setPointsPlus(self):
+        """ Sets the points to plus signs."""
         self.plotScatter.setSymbol(symbol = '+')
 
     def setPointSize(self):
+        """ Sets the point size to one tenth of the SLIDER_POINTSIZE value."""
         self.pointSize = float(self.slider_pointSize.value()) / 10
         self.plotScatter.setSize(self.pointSize)
 
     def setLineSize(self):
+        """ Sets the line size to one tenth of the SLIDER_LINESIZE value."""
         self.lineSize = float(self.slider_lineSize.value()) / 10
         self.plotCurve.setPen(color = self.lineColor, width = self.lineSize)
 
