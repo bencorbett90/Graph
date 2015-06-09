@@ -190,7 +190,7 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         enable = self.checkBox_connect.isChecked()
         if enable:
             show = self.lineColor
-            self.plotCurve.setPen(show)
+            self.plotCurve.setPen(color = self.lineColor, width = self.lineSize)
             #self.plotCurve.setData(self.xVals, self.yVals, pen = show)
             # self.plotCurve.sigPlotChanged
             # print("show")
