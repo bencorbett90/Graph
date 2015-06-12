@@ -6,6 +6,7 @@ import Tkinter
 import thread
 import time
 from tkFileDialog import askopenfilename
+from scattercurve import ScatterCurve
 
 
 from graph_ui import Ui_MainWindow
@@ -17,31 +18,16 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
 
         # Default Fields
-        self.updateFilePath = None
-        self.filePath = None
-        self.lineColor = pqg.mkColor(0, 0, 0, 255)
-        self.pointColor = pqg.mkColor(0, 0, 0, 255)
         self.backgroundColor = pqg.mkColor(255, 255, 255, 100)
         self.axisColor = pqg.mkColor(0, 0, 0, 255)
-        self.xVals = np.empty((0, 0))
-        self.yVals = np.empty((0, 0))
-        self.pointSize = 3
-        self.lineSize = 3
-
+        self.plots = []
+        self.curPlot = ScatterCurve()
+        
         # Connecting the open file menu option
         self.file_open.triggered.connect(self.loadPlot)
         
-        # Connecting the update menu option. Starts the polling on a new thread.
-        u = lambda: thread.start_new_thread(self.updatePlot, ())
-        self.file_update.triggered.connect(u)
-        
         # Add the curve to the PlotItem.
-        self.plotCurve = pqg.PlotCurveItem()
-        self.plot.addItem(self.plotCurve)
-
-        # Add the scatter plot to the PlotItem.
-        self.plotScatter = pqg.ScatterPlotItem()
-        self.plot.addItem(self.plotScatter)
+        self.plots = []
         
         # Add the grid, and get rid of the autoscale button.
         self.plot.getPlotItem().showGrid(True, True, 1)
@@ -73,8 +59,6 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
 
         # Initializing the color buttons
         self.btn_color1.setColor(self.backgroundColor)
-        self.btn_color2.setColor(self.lineColor)
-        self.btn_color3.setColor(self.pointColor)
         self.btn_color4.setColor(self.axisColor)
 
         # Connecting the drop down menu
@@ -83,40 +67,32 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         # Connecting and initializing the slider
         self.slider_pointSize.valueChanged.connect(self.setPointSize)
         self.slider_lineSize.valueChanged.connect(self.setLineSize)
-        self.slider_lineSize.setValue(self.lineSize * 10)
-        self.slider_pointSize.setValue(self.pointSize * 10)
+
+        # Connecting the combobox
+        self.comboBox_selectPlot.activated.connect(self.selectCurPlot)
 
 
-    def updatePlot(self):
-        """ Allows the user to select an update file, which will tell the program to track
-            a file and display any changes. The file must be in the format of a number signifing
-            a time stamp of when the file was last formatted, and then a line with the file path.
-            The program will only display the updated data when the timestamp is greater than the
-            previous stamp. """
+    def addPlot(self, x, y):
+        """Add a new plot consisting of x, y data to the plots."""
+        self.curPlot = ScatterCurve(x, y)
+        self.curPlot.addTo(self.plot)
+        self.plots += [self.curPlot]
+        self.comboBox_selectPlot.addItem("Plot {}".format(len(self.plots)))
+        curIndex = len(self.plots) - 1
+        self.comboBox_selectPlot.setCurrentIndex(curIndex)
+        self.syncButtons()
 
-        filePath = getFilePath()
-        dataPath = None
-        prevTime = 0.0
+        self.curPlot.scatterPlot.sigClicked.connect(lambda: self.changeToPlot(curIndex))
+        self.curPlot.curvePlot.sigClicked.connect(lambda: self.changeToPlot(curIndex))
 
-        while True:
-            try:
-                data = open(filePath, 'r')
-            except IOError:
-                print("The requested file doesn't exist: " + filePath)
-                return
-            
-            lineCount = sum(1 for line in open(filePath))
-            
-            if lineCount == 2:
-                curTime = float(data.next())
-                if curTime > prevTime:
-                    prevTime = curTime
-                    dataPath = data.next().strip()
-                    self.plotFile(dataPath)
 
-            data.close()
-            time.sleep(1)
-
+    def syncButtons(self):
+        """Updates the GUI buttons to display the appropriate values when a new
+        plot is selected or loaded."""
+        self.btn_color2.setColor(self.curPlot.lineColor)
+        self.btn_color3.setColor(self.curPlot.pointColor)
+        self.slider_lineSize.setValue(self.curPlot.lineSize * 10)
+        self.slider_pointSize.setValue(self.curPlot.pointSize * 10)
 
     def plotFile(self, filePath, connect = True):
         """Plot the file at FILEPATH."""
@@ -125,17 +101,9 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         x, y, err = openFile(filePath)
         if (err != 0):
             return
-
-        self.filePath = filePath
-    
-        # convert to numpy arrays
-        self.xVals = np.array(x)
-        self.yVals = np.array(y)
     
         # plot
-        curvePen = pqg.mkPen(self.lineColor, width = self.lineSize)
-        self.plotCurve.setData(x = self.xVals, y = self.yVals, pen = curvePen)
-        self.plotScatter.setData(self.xVals, self.yVals, pen = self.pointColor, size = self.pointSize)
+        self.addPlot(np.array(x), np.array(y))
 
 
     def loadPlot(self):
@@ -189,25 +157,18 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         """Toggles whether the points are connected by lines or not."""
         enable = self.checkBox_connect.isChecked()
         if enable:
-            show = self.lineColor
-            self.plotCurve.setPen(color = self.lineColor, width = self.lineSize)
-            #self.plotCurve.setData(self.xVals, self.yVals, pen = show)
-            # self.plotCurve.sigPlotChanged
-            # print("show")
+            self.curPlot.setPenCurve(color = self.curPlot.lineColor, width = self.curPlot.lineSize)
         else:
             clear = pqg.mkColor(0, 0, 0, 0)
-            self.plotCurve.setPen(clear)
-            #self.plotCurve.setData(self.xVals, self.yVals, pen = clear)
-            # self.plotCurve.sigPlotChanged
-            # print("hide")
+            self.curPlot.setPenCurve(clear)
 
     def showPoints(self):
         """ Toggles points on or off. """
         enable = self.checkBox_points.isChecked()
-        if not enable:
-            self.plotScatter.setSize(0)
+        if enable:
+            self.curPlot.setSizeScatter(self.curPlot.pointSize)
         else:
-            self.plotScatter.setSize(self.pointSize)
+            self.curPlot.setSizeScatter(0)
 
     def showGrid(self):
         """ Toggles the grid on or off. """
@@ -228,14 +189,14 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
 
     def setLineColor(self):
         """ Sets the line color to the value of BTN_COLOR2. """
-        self.lineColor = self.btn_color2.color()
-        self.plotCurve.setPen(color = self.lineColor, width = self.lineSize)
+        self.curPlot.lineColor = self.btn_color2.color()
+        self.curPlot.setPenCurve(color = self.curPlot.lineColor, width = self.curPlot.lineSize)
 
 
     def setPointColor(self):
         """ Sets the point color to the value of BTN_COLOR3. """
-        self.pointColor = self.btn_color3.color()
-        self.plotScatter.setPen(self.pointColor)
+        self.curPlot.pointColor = self.btn_color3.color()
+        self.curPlot.setBrushScatter(self.curPlot.pointColor)
 
 
     def setAxisColor(self):
@@ -258,39 +219,44 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
 
     def setPointsCircle(self):
         """ Sets the points to circles."""
-        self.plotScatter.setSymbol(symbol = 'o')
+        self.curPlot.setSymbolScatter('o')
     
     def setPointsSquare(self):
         """ Sets the points to squares."""
-        self.plotScatter.setSymbol(symbol = 's')
+        self.curPlot.setSymbolScatter('s')
     
     def setPointsTriangle(self):
         """ Sets the points to triangles."""
-        self.plotScatter.setSymbol(symbol = 't')
+        self.curPlot.setSymbolScatter('t')
     
     def setPointsDiamond(self):
         """ Sets the points to diamonds."""
-        self.plotScatter.setSymbol(symbol = 'd')
+        self.curPlot.setSymbolScatter('d')
     
     def setPointsPlus(self):
         """ Sets the points to plus signs."""
-        self.plotScatter.setSymbol(symbol = '+')
+        self.curPlot.setSymbolScatter('+')
 
     def setPointSize(self):
         """ Sets the point size to one tenth of the SLIDER_POINTSIZE value."""
-        self.pointSize = float(self.slider_pointSize.value()) / 10
-        self.plotScatter.setSize(self.pointSize)
+        self.curPlot.pointSize = float(self.slider_pointSize.value()) / 10
+        self.curPlot.setSizeScatter(self.curPlot.pointSize)
 
     def setLineSize(self):
         """ Sets the line size to one tenth of the SLIDER_LINESIZE value."""
-        self.lineSize = float(self.slider_lineSize.value()) / 10
-        self.plotCurve.setPen(color = self.lineColor, width = self.lineSize)
+        self.curPlot.lineSize = float(self.slider_lineSize.value()) / 10
+        self.curPlot.setPenCurve(color = self.curPlot.lineColor, width = self.curPlot.lineSize)
 
+    def selectCurPlot(self):
+        index = self.comboBox_selectPlot.currentIndex()
+        self.changeToPlot(index)
 
+    def changeToPlot(self, index):
+        if index < len(self.plots):
+            self.curPlot = self.plots[index]
+            self.syncButtons()
+            self.comboBox_selectPlot.setCurrentIndex(index)
 
-
-
-                
 
 def getFilePath():
     """ Opens a Tkinter GUI to select a file. Returns the path of that file. """
