@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 class DataStream():
     def __init__(self):
@@ -14,17 +15,34 @@ class DataStream():
 
     def getDimension(self, dim):
         """Return the data comprising the DIM'th dimension. Index from zero."""
-        return NotImplementedError()
+        raise NotImplementedError()
+    
+    def name(self):
+        """Return the name of the data file."""
+        raise NotImplementedError()
+
+    def setName(self):
+        """Set the name of this DataStream."""
+        raise NotImplementedError()
+
+    def dimName(self, dim):
+        """Return the name of the DIM'th dimension."""
+        return "Dimension {}".format(dim)
+
+    def setDimName(self, dim, name):
+        """Set the name of dimension DIM to NAME."""
 
 
-class DataTxtFile(dataStream):
+class DataTxtFile(DataStream):
     def __init__(self, path):
         """Set the parent GUI element of the datastream. Set the path of the .txt file,
         and load the data it contains."""
         self.path = path
+        self.name = shorten_filename(path)
         self.shape = (0, 0)
         self.data = np.zeros(self.shape)
         self.loadData()
+        self.dimNames = ["Dimension {}".format(i) for i in range(self.shape[1])]
 
     def getData(self):
         return self.data
@@ -33,41 +51,61 @@ class DataTxtFile(dataStream):
         return self.shape[1]
 
     def getDimension(self, dim):
-        condition = [True for _ in range(len(self.data))]
+        condition = [True if i == dim else False for i in range(len(self.data))]
         if dim > self.shape[1]:
-            return np.zeros((0, 0))
-        return np.compress(condition, data, dim)
+            return np.zeros(0)
+        return np.compress(condition, self.data, 1)
+
+    def getName(self):
+        """Return the name of the data file."""
+        return self.name
+
+    def setName(self, newName):
+        """Set the name of the data file."""
+        self.name = newName
+
+    def dimName(self, dim):
+        return self.dimNames[dim]
+
+    def setDimName(self, dim, newName):
+        self.dimNames[dim] = newName
 
     def loadData(self):
         try:
-            data = open(path, 'r')
+            data = open(self.path, 'r')
         except IOError:
-            print("The requested file doesn't exist: " + path)
+            print("The requested file doesn't exist: " + self.path)
             self.destroy()
             return
     
-        data = []
+        points = []
         lineNum = 1
 
         for line in data:
-            items = line.split
+            items = line.split()
             if lineNum == 1:
                 numDim = len(items)
-            elif len(items) != numDim:
+            if len(items) != numDim:
                 print("Length error at line: " + str(lineNum))
                 self.destroy()
                 return
             else:
                 try:
-                    temp = []
+                    point = []
                     for value in items:
-                        temp += [float(value)]
-                    data += temp
+                        point += [float(value)]
+                    points += [point]
                 except ValueError:
                     print("Error coercing value to float at line: " + str(lineNum))
                     self.destroy()
                     return
             lineNum += 1
 
-        self.data = np.array(data)
+        self.data = np.array(points)
         self.shape = self.data.shape
+
+
+
+def shorten_filename(filename):
+    f = os.path.split(filename)[1]
+    return "%s~%s" % (f[:3], f[-16:]) if len(f) > 19 else f

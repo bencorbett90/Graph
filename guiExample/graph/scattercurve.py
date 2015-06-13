@@ -15,6 +15,10 @@ class ScatterCurve():
         self.curvePlot.setClickable(True, 10)
         self.validateData(x, y)
         self.graph()
+        self.name = None
+
+    def setName(self, newName):
+        self.name = newName
 
     def validateData(self, x, y):
         if type(x) != np.ndarray or type(y) != np.ndarray:

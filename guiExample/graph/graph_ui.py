@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'graph/graph.ui'
 #
-# Created: Fri Jun 12 13:47:15 2015
+# Created: Fri Jun 12 18:09:16 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -184,6 +184,27 @@ class Ui_MainWindow(object):
         self.tab_2.setObjectName(_fromUtf8("tab_2"))
         self.verticalLayout_5 = QtGui.QVBoxLayout(self.tab_2)
         self.verticalLayout_5.setObjectName(_fromUtf8("verticalLayout_5"))
+        self.btn_loadData = QtGui.QPushButton(self.tab_2)
+        self.btn_loadData.setObjectName(_fromUtf8("btn_loadData"))
+        self.verticalLayout_5.addWidget(self.btn_loadData)
+        self.tree_data = QtGui.QTreeWidget(self.tab_2)
+        self.tree_data.setColumnCount(2)
+        self.tree_data.setObjectName(_fromUtf8("tree_data"))
+        self.verticalLayout_5.addWidget(self.tree_data)
+        self.table_plots = QtGui.QTableWidget(self.tab_2)
+        self.table_plots.setColumnCount(3)
+        self.table_plots.setObjectName(_fromUtf8("table_plots"))
+        self.table_plots.setRowCount(0)
+        item = QtGui.QTableWidgetItem()
+        self.table_plots.setHorizontalHeaderItem(0, item)
+        item = QtGui.QTableWidgetItem()
+        self.table_plots.setHorizontalHeaderItem(1, item)
+        item = QtGui.QTableWidgetItem()
+        self.table_plots.setHorizontalHeaderItem(2, item)
+        self.verticalLayout_5.addWidget(self.table_plots)
+        self.btn_newTrace = QtGui.QPushButton(self.tab_2)
+        self.btn_newTrace.setObjectName(_fromUtf8("btn_newTrace"))
+        self.verticalLayout_5.addWidget(self.btn_newTrace)
         self.tabWidget.addTab(self.tab_2, _fromUtf8(""))
         self.tab_3 = QtGui.QWidget()
         self.tab_3.setObjectName(_fromUtf8("tab_3"))
@@ -355,7 +376,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuFile.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(2)
+        self.tabWidget.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -372,6 +393,15 @@ class Ui_MainWindow(object):
         self.label_9.setText(_translate("MainWindow", "Point Size", None))
         self.label_10.setText(_translate("MainWindow", "Line Size", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Plot", None))
+        self.btn_loadData.setText(_translate("MainWindow", "Load Data", None))
+        self.tree_data.headerItem().setText(0, _translate("MainWindow", "DataStreams", None))
+        item = self.table_plots.horizontalHeaderItem(0)
+        item.setText(_translate("MainWindow", "Plot", None))
+        item = self.table_plots.horizontalHeaderItem(1)
+        item.setText(_translate("MainWindow", "Show", None))
+        item = self.table_plots.horizontalHeaderItem(2)
+        item.setText(_translate("MainWindow", "Update", None))
+        self.btn_newTrace.setText(_translate("MainWindow", "Create New Trace", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("MainWindow", "Data", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), _translate("MainWindow", "Calculate", None))
         self.label_3.setText(_translate("MainWindow", "x min", None))

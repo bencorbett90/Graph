@@ -8,7 +8,7 @@ import time
 from tkFileDialog import askopenfilename
 from scattercurve import ScatterCurve
 
-
+from datastream import DataTxtFile, DataStream
 from graph_ui import Ui_MainWindow
  
 
@@ -22,9 +22,11 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.axisColor = pqg.mkColor(0, 0, 0, 255)
         self.plots = []
         self.curPlot = ScatterCurve()
+        self.selectedDimensions = []
         
         # Connecting the open file menu option
-        self.file_open.triggered.connect(self.loadPlot)
+        self.file_open.triggered.connect(self.loadTxtFile)
+        self.btn_loadData.clicked.connect(self.loadTxtFile)
         
         # Add the curve to the PlotItem.
         self.plots = []
@@ -71,13 +73,19 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         # Connecting the combobox
         self.comboBox_selectPlot.activated.connect(self.selectCurPlot)
 
+        # Connecting the data tree
+        self.tree_data.itemClicked.connect(self.treeItemClicked)
 
-    def addPlot(self, x, y):
+        # Connecting the Create New Trace button
+        self.btn_newTrace.clicked.connect(self.newTrace)
+
+
+    def addPlot(self, sc):
         """Add a new plot consisting of x, y data to the plots."""
-        self.curPlot = ScatterCurve(x, y)
+        self.curPlot = sc
         self.curPlot.addTo(self.plot)
         self.plots += [self.curPlot]
-        self.comboBox_selectPlot.addItem("Plot {}".format(len(self.plots)))
+        self.comboBox_selectPlot.addItem(sc.name)
         curIndex = len(self.plots) - 1
         self.comboBox_selectPlot.setCurrentIndex(curIndex)
         self.syncButtons()
@@ -103,15 +111,85 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
             return
     
         # plot
-        self.addPlot(np.array(x), np.array(y))
+        sc = ScatterCurve(np.array(x), np.array(y))
+        self.addPlot(sc)
 
-
-    def loadPlot(self):
+    def loadTxtFile(self):
         """ Opens a browser for the user to select a file and then
             attempts to graph the file. """
 
         filePath = getFilePath()
-        self.plotFile(filePath)
+        txtFile = DataTxtFile(filePath)
+        self.addDataToTree(txtFile)
+
+    def addDataToTree(self, dataStream):
+        tree = self.tree_data
+        treeItem = QtGui.QTreeWidgetItem([dataStream.getName()])
+        treeItem.dataStream = None
+        treeItem.dim = None
+        self.addToTable(dataStream)
+        for dim in range(dataStream.dimensions()):
+            subItem = QtGui.QTreeWidgetItem([dataStream.dimName(dim)])
+            subItem.setFlags(QtCore.Qt.ItemIsUserCheckable)
+            subItem.setCheckState(1, QtCore.Qt.Unchecked)
+            subItem.dataStream = dataStream
+            subItem.dim = dim
+            subItem.setTextColor(0, QtGui.QColor(0, 0, 0))
+            subItem.setTextColor(1, QtGui.QColor(0, 0, 0))
+            treeItem.addChild(subItem)
+
+        tree.addTopLevelItem(treeItem)
+
+    def treeItemClicked(self, item, column):
+        if item.dataStream == None:
+            return
+        if item.checkState(1) == QtCore.Qt.Unchecked:
+            item.setCheckState(1, QtCore.Qt.Checked)
+            self.selectedDimensions += [[item.dataStream, item.dim]]
+        else:
+            item.setCheckState(1, QtCore.Qt.Unchecked)
+            self.selectedDimensions.remove([item.dataStream, item.dim])
+
+    def newTrace(self):
+        raise NotImplementedError()
+
+    def addToTable(self, dataStream):
+        table = self.table_plots
+        xVals = dataStream.getDimension(0).flatten()
+        yVals = dataStream.getDimension(1).flatten()
+        sc = ScatterCurve(xVals, yVals)
+        
+        # create a new row in the table for the plot to occupy.
+        curRow = table.rowCount()
+        table.setRowCount(curRow + 1)
+        
+        # set the plot name.
+        sc.setName("Plot {}".format(curRow + 1))
+        
+        # create, add, and connect the text box holding the plot name.
+        textBox = QtGui.QLineEdit(sc.name)
+        table.setCellWidget(curRow, 0, textBox)
+        setName = lambda: sc.setName(textBox.text())
+        textBox.textChanged.connect(setName)
+
+        # create, add, and connect the check box designating plotting
+        checkBox1 = QtGui.QCheckBox("")
+        table.setCellWidget(curRow, 1, checkBox1)
+        show = lambda : self.toggleShow(sc)
+        checkBox1.stateChanged.connect(show)
+        checkBox1.setChecked(True)
+
+        # create, add, and connect the check box designating updating
+        checkBox2 = QtGui.QCheckBox("")
+        table.setCellWidget(curRow, 2, checkBox2)
+        update = lambda : self.toggleUpdate(sc)
+        checkBox2.stateChanged.connect(update)
+
+    def toggleUpdate(self, sc):
+        raise NotImplementedError()
+
+    def toggleShow(self, sc):
+        raise NotImplementedError()
 
     def setRange(self):
         """ Sets the range of the graph to the values in the spin boxes. """
