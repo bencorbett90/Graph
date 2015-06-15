@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>898</width>
-    <height>925</height>
+    <width>834</width>
+    <height>811</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -28,7 +28,7 @@
       </property>
       <widget class="QTabWidget" name="tabWidget">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+        <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -379,42 +379,57 @@
           </widget>
          </item>
          <item>
-          <widget class="QTreeWidget" name="tree_data">
-           <property name="columnCount">
-            <number>2</number>
+          <widget class="QSplitter" name="splitter_4">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
            </property>
-           <column>
-            <property name="text">
-             <string>DataStreams</string>
+           <widget class="QTreeWidget" name="tree_data">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
             </property>
-           </column>
-           <column>
-            <property name="text">
-             <string/>
+            <property name="columnCount">
+             <number>2</number>
             </property>
-           </column>
-          </widget>
-         </item>
-         <item>
-          <widget class="QTableWidget" name="table_plots">
-           <property name="columnCount">
-            <number>3</number>
-           </property>
-           <column>
-            <property name="text">
-             <string>Plot</string>
+            <column>
+             <property name="text">
+              <string>DataStreams</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string/>
+             </property>
+            </column>
+           </widget>
+           <widget class="QTableWidget" name="table_plots">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
             </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>Show</string>
+            <property name="columnCount">
+             <number>3</number>
             </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>Update</string>
-            </property>
-           </column>
+            <column>
+             <property name="text">
+              <string>Plot</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>Show</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>Update</string>
+             </property>
+            </column>
+           </widget>
           </widget>
          </item>
          <item>
@@ -435,7 +450,7 @@
       </widget>
       <widget class="PlotWidget" name="plot">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -744,7 +759,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>898</width>
+     <width>834</width>
      <height>21</height>
     </rect>
    </property>

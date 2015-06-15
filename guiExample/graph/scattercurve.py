@@ -2,6 +2,7 @@ import pyqtgraph as pqg
 import numpy as np
 
 class ScatterCurve():
+    count = 0
     def __init__(self, x = np.zeros(0), y = np.zeros(0)):
         self.xData = np.zeros(0)
         self.yData = np.zeros(0)
@@ -10,12 +11,16 @@ class ScatterCurve():
         self.pointSize = 3
         self.lineSize = 3
         self.suppliedDim = 0
+        self.showCurve = True
+        self.showScatter = True
         self.scatterPlot = pqg.ScatterPlotItem()
         self.curvePlot = pqg.PlotCurveItem()
         self.curvePlot.setClickable(True, 10)
         self.validateData(x, y)
         self.graph()
         self.name = None
+        self.id = ScatterCurve.count
+        ScatterCurve.count += 1
 
     def setName(self, newName):
         self.name = newName
@@ -40,10 +45,10 @@ class ScatterCurve():
             self.xData = x
             self.yData = y
 
-    def setXRange(self, xMin = 0, xMax = 10):
+    def setXRange(self, xmin = 0, xmax = 10):
         """When no x data supplied, must interpolate a range. Evenly distributes the y
         values over [XMIN, XMAX]."""
-        if self.suppliedDim != 1:
+        if self.suppliedDim == 1:
             raise Exception("Can only set X range with 1D data")
         numPoints = len(self.yData)
         step = float((xMin - xMax)) / float(numPoints)
@@ -69,13 +74,22 @@ class ScatterCurve():
 
     def addTo(self, plotItem):
         """Add my ScatterPlotItem and PlotCurveItem to PLOTITEM."""
-        plotItem.addItem(self.scatterPlot)
         plotItem.addItem(self.curvePlot)
+        plotItem.addItem(self.scatterPlot)
 
+    def removeFrom(self, plotItem):
+        """Remove my ScatterPlotItem and PlotCurveItem from PLOTITEM"""
+        plotItem.removeItem(self.scatterPlot)
+        plotItem.removeItem(self.curvePlot)
 
-    #
-    # The following methods wrap methods from ScatterPlotItem.
-    #
+    def clickedConnect(self, f):
+        """Connect some function f to be called when SCATTERPLOT or SCATTERCURVE is clicked."""
+        self.scatterPlot.sigClicked.connect(f)
+        self.curvePlot.sigClicked.connect(f)
+
+    ############################################################
+    # The following methods wrap methods from ScatterPlotItem. #
+    ############################################################
     def setBrushScatter(self, *args, **kargs):
         """Wraps setBrush from ScatterPlotItem."""
         return self.scatterPlot.setBrush(*args, **kargs)
@@ -92,9 +106,9 @@ class ScatterCurve():
         """Wraps setPen from ScatterPlotItem."""
         return self.scatterPlot.setPen(*args, **kargs)
 
-    #
-    # The following methods wrap methods from PlotCurveItem.
-    #
+    ##########################################################
+    # The following methods wrap methods from PlotCurveItem. #
+    ##########################################################
     def setBrushCurve(self, *args, **kargs):
         """Wraps setBrush from PlotCurveItem."""
         return self.curvePlot.setBrush(*args, **kargs)

@@ -54,7 +54,7 @@ class DataTxtFile(DataStream):
         condition = [True if i == dim else False for i in range(len(self.data))]
         if dim > self.shape[1]:
             return np.zeros(0)
-        return np.compress(condition, self.data, 1)
+        return np.compress(condition, self.data, 1).flatten()
 
     def getName(self):
         """Return the name of the data file."""
@@ -104,6 +104,8 @@ class DataTxtFile(DataStream):
         self.data = np.array(points)
         self.shape = self.data.shape
 
+    def destroy(self):
+        raise NotImplementedError()
 
 
 def shorten_filename(filename):

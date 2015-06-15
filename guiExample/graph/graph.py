@@ -90,9 +90,7 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.comboBox_selectPlot.setCurrentIndex(curIndex)
         self.syncButtons()
 
-        self.curPlot.scatterPlot.sigClicked.connect(lambda: self.changeToPlot(curIndex))
-        self.curPlot.curvePlot.sigClicked.connect(lambda: self.changeToPlot(curIndex))
-
+        self.curPlot.clickedConnect(lambda: self.changeToSC(sc))
 
     def syncButtons(self):
         """Updates the GUI buttons to display the appropriate values when a new
@@ -101,6 +99,8 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.btn_color3.setColor(self.curPlot.pointColor)
         self.slider_lineSize.setValue(self.curPlot.lineSize * 10)
         self.slider_pointSize.setValue(self.curPlot.pointSize * 10)
+        self.checkBox_points.setChecked(self.curPlot.showScatter)
+        self.checkBox_connect.setChecked(self.curPlot.showCurve)
 
     def plotFile(self, filePath, connect = True):
         """Plot the file at FILEPATH."""
@@ -123,73 +123,180 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.addDataToTree(txtFile)
 
     def addDataToTree(self, dataStream):
+        """Add a DataStream DATASTREAM to the TREE_DATA."""
         tree = self.tree_data
-        treeItem = QtGui.QTreeWidgetItem([dataStream.getName()])
-        treeItem.dataStream = None
-        treeItem.dim = None
-        self.addToTable(dataStream)
-        for dim in range(dataStream.dimensions()):
-            subItem = QtGui.QTreeWidgetItem([dataStream.dimName(dim)])
-            subItem.setFlags(QtCore.Qt.ItemIsUserCheckable)
-            subItem.setCheckState(1, QtCore.Qt.Unchecked)
-            subItem.dataStream = dataStream
-            subItem.dim = dim
-            subItem.setTextColor(0, QtGui.QColor(0, 0, 0))
-            subItem.setTextColor(1, QtGui.QColor(0, 0, 0))
-            treeItem.addChild(subItem)
+        
+        # create a new QTreeWidgetItem that will be the parent TreeWidget.
+        parentTW = QtGui.QTreeWidgetItem([dataStream.getName()])
+        
+        # Since the parent TreeWidgetItem represents the DataStream and not
+        # one of it's dimensions, set its DIMDATA field to NONE.
+        parentTW.dimData = np.zeros(0)
+        parentTW.parent = True
 
-        tree.addTopLevelItem(treeItem)
+        # add the default view of this stream to the Table and graph it 
+        self.addToTable(dataStream)
+
+        # populate the TreeWidget with children that comprise it's dimensions.
+        for dim in range(dataStream.dimensions()):
+            
+            # create a new child TreeWidget and set it to be checkable
+            childTW = QtGui.QTreeWidgetItem([dataStream.dimName(dim)])
+            childTW.setFlags(QtCore.Qt.ItemIsUserCheckable)
+            childTW.setCheckState(1, QtCore.Qt.Unchecked)
+            
+            # attatch the dimension data to the child
+            childTW.dimData = dataStream.getDimension(dim)
+            childTW.parent = False
+
+            # Set the text color
+            childTW.setTextColor(0, QtGui.QColor(0, 0, 0))
+            childTW.setTextColor(1, QtGui.QColor(0, 0, 0))
+            
+            # add the child to the parent TreeWidget 
+            parentTW.addChild(childTW)
+
+        # finally add the parent TreeWidgetItem to the tree
+        tree.addTopLevelItem(parentTW)
 
     def treeItemClicked(self, item, column):
-        if item.dataStream == None:
+        """Handles a click in column COLUMN of item ITEM."""
+        
+        # if it's the parent item do nothing.
+        if item.parent == True:
             return
-        if item.checkState(1) == QtCore.Qt.Unchecked:
+        # if ITEM is unchecked: check it, and add the associated data  
+        elif item.checkState(1) == QtCore.Qt.Unchecked:
             item.setCheckState(1, QtCore.Qt.Checked)
-            self.selectedDimensions += [[item.dataStream, item.dim]]
+            self.selectedDimensions += [item.dimData]
+        # else it's checkd, so uncheck it and remove it's dimension from the list.
         else:
             item.setCheckState(1, QtCore.Qt.Unchecked)
-            self.selectedDimensions.remove([item.dataStream, item.dim])
+            self.selectedDimensions.remove(item.dimData)
+
+    #########################################
+    #### Methods Dealing with Plot Table ####
+    #########################################
 
     def newTrace(self):
-        raise NotImplementedError()
+        """Create a new trace/plot from the selected dimensions"""
+        dimList = self.selectedDimensions
+        
+        # uncheck all of the DataStream dimension check boxes
+        self.deselectDataStreams()
+        
+        # currently don't support displaying more than 2D data.
+        if len(dimList) > 2:
+            self.selectedDimensions = []
+            raise Exception("Too many dimensions selected: {}".format(len(dimList)))
+        # if no items are selected do nothing
+        if len(dimList) == 0:
+            return
+        # otherwise read in X values and initialize Y values
+        xVals = dimList[0]
+        yVals = np.zeros(0)
+
+        # if two dimensions are selected read values inton YVALS
+        if len(dimList) == 2:
+            yVals = dimList[1]
+
+        # create the ScatterCurve and add it to TABLE_PLOTS
+        sc = ScatterCurve(xVals, yVals)
+        self.addSCtoTable(sc)
+
+        # clear the list of selected dimensions.
+        self.selectedDimensions = []
+
+    def deselectDataStreams(self):
+        """Uncheck all of the data streams. Used after creating a new plot."""
+        # raise NotImplementedError()
+        print ("deselectDataStreams not implimented")
+        return
 
     def addToTable(self, dataStream):
+        """Add a DataStream DATASTREAM to the TABLE_PLOTS."""
         table = self.table_plots
-        xVals = dataStream.getDimension(0).flatten()
-        yVals = dataStream.getDimension(1).flatten()
+        xVals = dataStream.getDimension(0)
+        yVals = dataStream.getDimension(1)
         sc = ScatterCurve(xVals, yVals)
-        
+        self.addSCtoTable(sc)
+    
+    def addSCtoTable(self, sc):
+        table = self.table_plots
+
         # create a new row in the table for the plot to occupy.
         curRow = table.rowCount()
         table.setRowCount(curRow + 1)
         
         # set the plot name.
-        sc.setName("Plot {}".format(curRow + 1))
+        scName = "Plot {}".format(curRow + 1)
+        while not self.uniquePlotName(scName, curRow + 10):
+            scName += '*'
+        sc.setName(scName)
         
         # create, add, and connect the text box holding the plot name.
         textBox = QtGui.QLineEdit(sc.name)
         table.setCellWidget(curRow, 0, textBox)
-        setName = lambda: sc.setName(textBox.text())
-        textBox.textChanged.connect(setName)
+        setName = lambda: self.updateName(textBox, sc, curRow)
+        textBox.editingFinished.connect(setName)
 
         # create, add, and connect the check box designating plotting
         checkBox1 = QtGui.QCheckBox("")
         table.setCellWidget(curRow, 1, checkBox1)
-        show = lambda : self.toggleShow(sc)
+        show = lambda: self.toggleShow(sc, checkBox1)
         checkBox1.stateChanged.connect(show)
         checkBox1.setChecked(True)
 
         # create, add, and connect the check box designating updating
         checkBox2 = QtGui.QCheckBox("")
         table.setCellWidget(curRow, 2, checkBox2)
-        update = lambda : self.toggleUpdate(sc)
+        update = lambda: self.toggleUpdate(sc)
         checkBox2.stateChanged.connect(update)
+
+    def updateName(self, textBox, sc, row):
+        newName = textBox.text()
+        if newName == sc.name:
+            return
+        elif not self.uniquePlotName(newName, row):
+            textBox.setText(newName + '*')
+        else:
+            oldName = sc.name
+            sc.setName(newName)
+            index = self.comboBox_selectPlot.findText(oldName)
+            self.comboBox_selectPlot.setItemText(index, newName)
+
+    def uniquePlotName(self, name, exceptRow):
+        """Search the plot table for names, and return True if name is not one of them."""
+        names = []
+        for row in range(self.table_plots.rowCount()):
+            textBox = self.table_plots.cellWidget(row, 0)
+            if row == exceptRow:
+                continue
+            if textBox != None:
+                names += [textBox.text()]
+        return name not in names
 
     def toggleUpdate(self, sc):
         raise NotImplementedError()
 
-    def toggleShow(self, sc):
-        raise NotImplementedError()
+    def toggleShow(self, sc, checkBox):
+        if checkBox.isChecked():
+            self.addPlot(sc)
+        else:
+            sc.removeFrom(self.plot)
+            
+            index = None
+            for i in range(len(self.plots)):
+                if self.plots[i].id == sc.id:
+                    index = i
+            self.plots.pop(index)                   
+            index = self.comboBox_selectPlot.findText(sc.name)
+            self.comboBox_selectPlot.removeItem(index)
+
+    
+    ##########################################
+    #### Methods dealing with the plot tab ###
+    ##########################################
 
     def setRange(self):
         """ Sets the range of the graph to the values in the spin boxes. """
@@ -235,8 +342,10 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         """Toggles whether the points are connected by lines or not."""
         enable = self.checkBox_connect.isChecked()
         if enable:
+            self.curPlot.showCurve = True
             self.curPlot.setPenCurve(color = self.curPlot.lineColor, width = self.curPlot.lineSize)
         else:
+            self.curPlot.showCurve = False
             clear = pqg.mkColor(0, 0, 0, 0)
             self.curPlot.setPenCurve(clear)
 
@@ -244,8 +353,10 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         """ Toggles points on or off. """
         enable = self.checkBox_points.isChecked()
         if enable:
+            self.curPlot.showScatter = True
             self.curPlot.setSizeScatter(self.curPlot.pointSize)
         else:
+            self.curPlot.showScatter = False
             self.curPlot.setSizeScatter(0)
 
     def showGrid(self):
@@ -258,31 +369,26 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
             self.plot.getPlotItem().getAxis('left').setGrid(False)
             self.plot.getPlotItem().getAxis('bottom').setGrid(False)
 
-
     def setBackgroundColor(self):
         """ Sets the background color to the value of the value of BTN_COLOR1."""
         self.backgroundColor = self.btn_color1.color()
         self.plot.getPlotItem().getViewBox().setBackgroundColor(self.backgroundColor)
-
 
     def setLineColor(self):
         """ Sets the line color to the value of BTN_COLOR2. """
         self.curPlot.lineColor = self.btn_color2.color()
         self.curPlot.setPenCurve(color = self.curPlot.lineColor, width = self.curPlot.lineSize)
 
-
     def setPointColor(self):
         """ Sets the point color to the value of BTN_COLOR3. """
         self.curPlot.pointColor = self.btn_color3.color()
         self.curPlot.setBrushScatter(self.curPlot.pointColor)
-
 
     def setAxisColor(self):
         """ Sets the axis color to the value of btn_color4. """
         self.axisColor = self.btn_color4.color()
         self.plot.getPlotItem().getAxis('left').setPen(self.axisColor)
         self.plot.getPlotItem().getAxis('bottom').setPen(self.axisColor)
-
 
     def popup_menu(self):
         """Creates a drop down menu for the selection of shapes."""
@@ -326,10 +432,17 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.curPlot.setPenCurve(color = self.curPlot.lineColor, width = self.curPlot.lineSize)
 
     def selectCurPlot(self):
+        """Change the current editable plot to that in the COMBOBOX_SELECTPLOT.""" 
         index = self.comboBox_selectPlot.currentIndex()
-        self.changeToPlot(index)
+        self.changeToIndex(index)
 
-    def changeToPlot(self, index):
+    def changeToSC(self, sc):
+        """Change the current plot to SC."""
+        index = self.comboBox_selectPlot.findText(sc.name, QtCore.Qt.MatchExactly)
+        self.changeToIndex(index)
+
+    def changeToIndex(self, index):
+        """Change the current plot to SELF.PLOTS[INDEX]."""
         if index < len(self.plots):
             self.curPlot = self.plots[index]
             self.syncButtons()
@@ -345,46 +458,10 @@ def getFilePath():
     # opens a new window, and returns the selected file's path.
     return askopenfilename()
 
-     
-def openFile(path):
-    """ Attempts to open the file at path PATH and returns the tripple of two lists of
-        x, y data and a bool signifying error. The file must be a a .txt file with two columns
-        of floating point numbers x,y separated by whitespace. If there was an error the bool
-        is TRUE else FALSE. """
 
-    #Attempt to open the file and handle the error.
-    if path == None:
-        return [], [], 1
-
-    try:
-        data = open(path, 'r')
-    except IOError:
-        print("The requested file doesn't exist: " + path)
-        return [], [], False
-    
-
-    x_vals = []
-    y_vals = []
-
-    # Read the file into x_vals, y_vals. If there is an error, set err to 1.
-    lineNum = 1
-    for line in data:
-        items = line.split()
-        if len(items) != 2:
-            print("Length error at line: " + str(lineNum))
-            return x_vals, y_vals, 1
-        else:
-            x_vals += [float(items[0])]
-            y_vals += [float(items[1])]
-        
-        lineNum += 1
-    return x_vals, y_vals, 0
-
-
-
-pqg.setConfigOptions(background=None)
-pqg.setConfigOptions(foreground='k')
+pqg.setConfigOptions(background='w')
+# pqg.setConfigOptions(foreground='b')
 app = QtGui.QApplication(sys.argv)
 myWindow = MyWindowClass(None)
 myWindow.show()
-app.exec_()
+sys.exit(app.exec_())
