@@ -3,13 +3,12 @@ from PyQt4 import QtCore, QtGui
 import pyqtgraph as pqg
 import numpy as np
 import Tkinter
-import thread
-import time
 from tkFileDialog import askopenfilename
-from scattercurve import ScatterCurve
 
 from datastream import DataTxtFile, DataStream
 from graph_ui import Ui_MainWindow
+from graphexception import GraphException
+from traceitem import TraceItem
  
 
 class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
@@ -21,7 +20,7 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.backgroundColor = pqg.mkColor(255, 255, 255, 100)
         self.axisColor = pqg.mkColor(0, 0, 0, 255)
         self.plots = []
-        self.curPlot = ScatterCurve()
+        self.curPlot = TraceItem()
         self.selectedDimensions = []
         
         # Connecting the open file menu option
@@ -102,18 +101,6 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.checkBox_points.setChecked(self.curPlot.showScatter)
         self.checkBox_connect.setChecked(self.curPlot.showCurve)
 
-    def plotFile(self, filePath, connect = True):
-        """Plot the file at FILEPATH."""
-        
-        # open the file, read, in the data and check for error
-        x, y, err = openFile(filePath)
-        if (err != 0):
-            return
-    
-        # plot
-        sc = ScatterCurve(np.array(x), np.array(y))
-        self.addPlot(sc)
-
     def loadTxtFile(self):
         """ Opens a browser for the user to select a file and then
             attempts to graph the file. """
@@ -181,28 +168,23 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
     def newTrace(self):
         """Create a new trace/plot from the selected dimensions"""
         dimList = self.selectedDimensions
+        dimNum = len(dimList)
         
         # uncheck all of the DataStream dimension check boxes
         self.deselectDataStreams()
         
         # currently don't support displaying more than 2D data.
-        if len(dimList) > 2:
+        if dimNum not in (2, 5, 6):
             self.selectedDimensions = []
-            raise Exception("Too many dimensions selected: {}".format(len(dimList)))
-        # if no items are selected do nothing
-        if len(dimList) == 0:
-            return
-        # otherwise read in X values and initialize Y values
-        xVals = dimList[0]
-        yVals = np.zeros(0)
+            raise GraphException("Improper number of dimensions selected: {}".format(dimNum))
+        
+        if dimNum == 2:
+        	trace = TraceItem(dimList, TraceItem.SC)
+        	self.addTracetoTable(trace)
 
-        # if two dimensions are selected read values inton YVALS
-        if len(dimList) == 2:
-            yVals = dimList[1]
-
-        # create the ScatterCurve and add it to TABLE_PLOTS
-        sc = ScatterCurve(xVals, yVals)
-        self.addSCtoTable(sc)
+        if dimNum in (5, 6):
+        	trace = TraceItem(dimList, TraceItem.IM)
+        	self.addTracetoTable(trace)
 
         # clear the list of selected dimensions.
         self.selectedDimensions = []
@@ -216,12 +198,20 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
     def addToTable(self, dataStream):
         """Add a DataStream DATASTREAM to the TABLE_PLOTS."""
         table = self.table_plots
-        xVals = dataStream.getDimension(0)
-        yVals = dataStream.getDimension(1)
-        sc = ScatterCurve(xVals, yVals)
-        self.addSCtoTable(sc)
+        dimNum = dataStream.dimensions()
+        if dimNum < 2:
+        	raise GraphException("Must have at least 2 dimensions to plot")
+        if dimNum < 5:
+        	data = [dataStream.getDimension(i) for i in range(0, 2)]
+        	trace = TraceItem(data, TraceItem.SC)
+        if dimNum >= 5:
+        	dimNum = min(dimNum, 6)
+        	data = [dataStream.getDimension(i) for i in range(0, dimNum)]
+        	trace = TraceItem(data, TraceItem.IM)
+
+        self.addTracetoTable(trace)
     
-    def addSCtoTable(self, sc):
+    def addTracetoTable(self, trace):
         table = self.table_plots
 
         # create a new row in the table for the plot to occupy.
@@ -229,39 +219,39 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         table.setRowCount(curRow + 1)
         
         # set the plot name.
-        scName = "Plot {}".format(curRow + 1)
-        while not self.uniquePlotName(scName, curRow + 10):
-            scName += '*'
-        sc.setName(scName)
+        traceName = "Plot {}".format(curRow + 1)
+        while not self.uniquePlotName(traceName, curRow + 10):
+            traceName += '*'
+        trace.setName(traceName)
         
         # create, add, and connect the text box holding the plot name.
-        textBox = QtGui.QLineEdit(sc.name)
+        textBox = QtGui.QLineEdit(trace.name)
         table.setCellWidget(curRow, 0, textBox)
-        setName = lambda: self.updateName(textBox, sc, curRow)
+        setName = lambda: self.updateName(textBox, trace, curRow)
         textBox.editingFinished.connect(setName)
 
         # create, add, and connect the check box designating plotting
         checkBox1 = QtGui.QCheckBox("")
         table.setCellWidget(curRow, 1, checkBox1)
-        show = lambda: self.toggleShow(sc, checkBox1)
+        show = lambda: self.toggleShow(trace, checkBox1)
         checkBox1.stateChanged.connect(show)
         checkBox1.setChecked(True)
 
         # create, add, and connect the check box designating updating
         checkBox2 = QtGui.QCheckBox("")
         table.setCellWidget(curRow, 2, checkBox2)
-        update = lambda: self.toggleUpdate(sc)
+        update = lambda: self.toggleUpdate(trace)
         checkBox2.stateChanged.connect(update)
 
-    def updateName(self, textBox, sc, row):
+    def updateName(self, textBox, trace, row):
         newName = textBox.text()
-        if newName == sc.name:
+        if newName == trace.name:
             return
         elif not self.uniquePlotName(newName, row):
             textBox.setText(newName + '*')
         else:
-            oldName = sc.name
-            sc.setName(newName)
+            oldName = trace.name
+            trace.setName(newName)
             index = self.comboBox_selectPlot.findText(oldName)
             self.comboBox_selectPlot.setItemText(index, newName)
 
@@ -279,18 +269,18 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
     def toggleUpdate(self, sc):
         raise NotImplementedError()
 
-    def toggleShow(self, sc, checkBox):
+    def toggleShow(self, trace, checkBox):
         if checkBox.isChecked():
-            self.addPlot(sc)
+            self.addPlot(trace)
         else:
-            sc.removeFrom(self.plot)
+            trace.removeFrom(self.plot)
             
             index = None
             for i in range(len(self.plots)):
-                if self.plots[i].id == sc.id:
+                if self.plots[i].id == trace.id:
                     index = i
             self.plots.pop(index)                   
-            index = self.comboBox_selectPlot.findText(sc.name)
+            index = self.comboBox_selectPlot.findText(trace.name)
             self.comboBox_selectPlot.removeItem(index)
 
     

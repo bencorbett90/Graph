@@ -1,6 +1,7 @@
 import pyqtgraph as pqg
 import numpy as np
 
+
 class ScatterCurve():
     count = 0
     def __init__(self, x = np.zeros(0), y = np.zeros(0)):
@@ -18,12 +19,12 @@ class ScatterCurve():
         self.curvePlot.setClickable(True, 10)
         self.validateData(x, y)
         self.graph()
-        self.name = None
-        self.id = ScatterCurve.count
-        ScatterCurve.count += 1
+        # self.name = None
+        # self.id = ScatterCurve.count
+        # ScatterCurve.count += 1
 
-    def setName(self, newName):
-        self.name = newName
+    # def setName(self, newName):
+    #     self.name = newName
 
     def validateData(self, x, y):
         if type(x) != np.ndarray or type(y) != np.ndarray:
@@ -64,11 +65,11 @@ class ScatterCurve():
                   pixels, regardless of scaling.
         antialias = whether to draw the symbols and curve with antialiasing.
         """
-        curvePen = pqg.mkPen(self.lineColor, width = self.lineSize)
-        self.curvePlot.setData(self.xData, self.yData, pen = curvePen)
-        self.scatterPlot.setData(self.xData, self.yData, pen = self.pointColor, size = self.pointSize)
+        curvePen = pqg.mkPen(self.lineColor, width=self.lineSize)
+        self.curvePlot.setData(self.xData, self.yData, pen=curvePen)
+        self.scatterPlot.setData(self.xData, self.yData, pen=self.pointColor, size=self.pointSize)
 
-    def setPoints(self, x = np.zeros(0), y = np.zeros(0)):
+    def setPoints(self, x = np.zeros(0), y = np.zeros(0), pxMode = True, antialias = False):
         self.validateData(x, y)
         self.graph()
 
