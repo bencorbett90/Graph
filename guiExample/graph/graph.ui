@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>834</width>
-    <height>811</height>
+    <width>918</width>
+    <height>928</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -259,9 +259,12 @@
              </spacer>
             </item>
             <item>
-             <widget class="MemoryButton" name="list_pointShapes">
+             <widget class="QComboBox" name="comboBox_symbol"/>
+            </item>
+            <item>
+             <widget class="QLabel" name="label_12">
               <property name="text">
-               <string>Point Shape</string>
+               <string>Scatterplot Symbol</string>
               </property>
              </widget>
             </item>
@@ -404,29 +407,28 @@
              </property>
             </column>
            </widget>
-           <widget class="QTableWidget" name="table_plots">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
+           <widget class="QTreeWidget" name="tree_trace">
             <property name="columnCount">
-             <number>3</number>
+             <number>4</number>
             </property>
             <column>
              <property name="text">
-              <string>Plot</string>
+              <string>Traces</string>
              </property>
             </column>
             <column>
              <property name="text">
-              <string>Show</string>
+              <string>&quot;&quot;</string>
              </property>
             </column>
             <column>
              <property name="text">
-              <string>Update</string>
+              <string>&quot;&quot;</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string/>
              </property>
             </column>
            </widget>
@@ -759,7 +761,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>834</width>
+     <width>918</width>
      <height>21</height>
     </rect>
    </property>
@@ -847,11 +849,6 @@
    <class>ColorButton</class>
    <extends>QGraphicsView</extends>
    <header>pyqtgraph</header>
-  </customwidget>
-  <customwidget>
-   <class>MemoryButton</class>
-   <extends>QPushButton</extends>
-   <header>memorybutton</header>
   </customwidget>
  </customwidgets>
  <resources/>

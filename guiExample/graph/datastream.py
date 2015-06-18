@@ -17,7 +17,7 @@ class DataStream():
         """Return the data comprising the DIM'th dimension. Index from zero."""
         raise NotImplementedError()
     
-    def name(self):
+    def getName(self):
         """Return the name of the data file."""
         raise NotImplementedError()
 

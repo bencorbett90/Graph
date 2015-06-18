@@ -22,6 +22,10 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.plots = []
         self.curPlot = TraceItem()
         self.selectedDimensions = []
+        self.tabs = ['None', 'Tab1']
+        self.dimDict = {}
+        self.traces = {}
+        self.dimensionSelectors = []
         
         # Connecting the open file menu option
         self.file_open.triggered.connect(self.loadTxtFile)
@@ -62,15 +66,14 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.btn_color1.setColor(self.backgroundColor)
         self.btn_color4.setColor(self.axisColor)
 
-        # Connecting the drop down menu
-        self.list_pointShapes.clicked.connect(self.popup_menu)
-
         # Connecting and initializing the slider
         self.slider_pointSize.valueChanged.connect(self.setPointSize)
         self.slider_lineSize.valueChanged.connect(self.setLineSize)
 
-        # Connecting the combobox
+        # Connecting the comboboxes
         self.comboBox_selectPlot.activated.connect(self.selectCurPlot)
+        self.comboBox_symbol.activated.connect(self.selectPointType)
+        self.comboBox_symbol.addItems(["Circle", "Square", "Triangle", "Diamond", "Plus"])
 
         # Connecting the data tree
         self.tree_data.itemClicked.connect(self.treeItemClicked)
@@ -122,7 +125,7 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         parentTW.parent = True
 
         # add the default view of this stream to the Table and graph it 
-        self.addToTable(dataStream)
+        self.addToTree(dataStream)
 
         # populate the TreeWidget with children that comprise it's dimensions.
         for dim in range(dataStream.dimensions()):
@@ -143,8 +146,23 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
             # add the child to the parent TreeWidget 
             parentTW.addChild(childTW)
 
+        self.addDimensions(dataStream) 
+
         # finally add the parent TreeWidgetItem to the tree
         tree.addTopLevelItem(parentTW)
+
+    def addDimensions(self, dataStream):
+        newDimNames = []
+        for dim in range(dataStream.dimensions()):
+            string = dataStream.name + '.'
+            string += dataStream.dimName(dim)
+            self.dimDict[string] = (dataStream, dim)
+            newDimNames += [string]
+        self.updateComboDim(newDimNames)
+
+    def updateComboDim(self, newDimNames):
+        for comboBox in self.dimensionSelectors:
+            comboBox.addItems(newDimNames)
 
     def treeItemClicked(self, item, column):
         """Handles a click in column COLUMN of item ITEM."""
@@ -180,11 +198,11 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         
         if dimNum == 2:
         	trace = TraceItem(dimList, TraceItem.SC)
-        	self.addTracetoTable(trace)
+        	self.addTraceToTree(trace)
 
         if dimNum in (5, 6):
         	trace = TraceItem(dimList, TraceItem.IM)
-        	self.addTracetoTable(trace)
+        	self.addTraceToTree(trace)
 
         # clear the list of selected dimensions.
         self.selectedDimensions = []
@@ -195,9 +213,8 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         print ("deselectDataStreams not implimented")
         return
 
-    def addToTable(self, dataStream):
-        """Add a DataStream DATASTREAM to the TABLE_PLOTS."""
-        table = self.table_plots
+    def addToTree(self, dataStream):
+        """Add a DataStream DATASTREAM to the TREE_PLOTS."""
         dimNum = dataStream.dimensions()
         if dimNum < 2:
         	raise GraphException("Must have at least 2 dimensions to plot")
@@ -209,39 +226,56 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         	data = [dataStream.getDimension(i) for i in range(0, dimNum)]
         	trace = TraceItem(data, TraceItem.IM)
 
-        self.addTracetoTable(trace)
+        self.addTraceToTree(trace)
     
-    def addTracetoTable(self, trace):
-        table = self.table_plots
 
-        # create a new row in the table for the plot to occupy.
-        curRow = table.rowCount()
-        table.setRowCount(curRow + 1)
+    def addTraceToTree(self, trace, traceType = TraceItem.SC):
+        tree = self.tree_trace
+        parentTWI = QtGui.QTreeWidgetItem()
+        tree.addTopLevelItem(parentTWI)
+
+        nameBox = QtGui.QLineEdit(trace.name)
+        updateName = lambda name: self.setTraceName(trace, name, nameBox)
+        nameBox.textEdited.connect(updateName)
+        tree.setItemWidget(parentTWI, 0, nameBox)
+
+        checkBoxShow = QtGui.QCheckBox("Show")
+        # show = lambda: self.toggleShow(trace, checkBoxShow)
+        # checkBoxShow.setChecked(True)
+        # checkBoxShow.stateChanged.connect(show)
+        tree.setItemWidget(parentTWI, 1, checkBoxShow)
         
-        # set the plot name.
-        traceName = "Plot {}".format(curRow + 1)
-        while not self.uniquePlotName(traceName, curRow + 10):
-            traceName += '*'
-        trace.setName(traceName)
-        
-        # create, add, and connect the text box holding the plot name.
-        textBox = QtGui.QLineEdit(trace.name)
-        table.setCellWidget(curRow, 0, textBox)
-        setName = lambda: self.updateName(textBox, trace, curRow)
-        textBox.editingFinished.connect(setName)
+        checkBoxUpdate = QtGui.QCheckBox("Update")
+        update = lambda: self.toggleUpdate(trace, checkBoxUpdate)
+        checkBoxShow.setChecked(False)
+        checkBoxShow.stateChanged.connect(update)
+        tree.setItemWidget(parentTWI, 2, checkBoxUpdate) 
 
-        # create, add, and connect the check box designating plotting
-        checkBox1 = QtGui.QCheckBox("")
-        table.setCellWidget(curRow, 1, checkBox1)
-        show = lambda: self.toggleShow(trace, checkBox1)
-        checkBox1.stateChanged.connect(show)
-        checkBox1.setChecked(True)
+        if traceType == TraceItem.SC:
+            childX = QtGui.QTreeWidgetItem(['x values'])
+            parentTWI.addChild(childX)
+            comboBoxX = QtGui.QComboBox()
+            comboBoxX.addItems(self.dimDict.keys())
+            tree.setItemWidget(childX, 1, comboBoxX)
 
-        # create, add, and connect the check box designating updating
-        checkBox2 = QtGui.QCheckBox("")
-        table.setCellWidget(curRow, 2, checkBox2)
-        update = lambda: self.toggleUpdate(trace)
-        checkBox2.stateChanged.connect(update)
+            childY = QtGui.QTreeWidgetItem(['y values'])
+            parentTWI.addChild(childY)
+            comboBoxY = QtGui.QComboBox()
+            comboBoxY.addItems(self.dimDict.keys())
+            tree.setItemWidget(childY, 1, comboBoxY)
+
+            curText1 = comboBoxX.currentText
+            curText2 = comboBoxY.currentText
+            loadData = lambda name: self.setTraceData(trace, curText1(), curText2())
+            comboBoxX.activated.connect(loadData)
+            comboBoxY.activated.connect(loadData)
+            self.dimensionSelectors += [comboBoxX, comboBoxY]
+
+    def setTraceData(self, trace, dim1String, dim2String):
+        print(dim1String, dim2String)
+
+    def setTraceName(self, trace, name, lineEdit):
+        print(name)
 
     def updateName(self, textBox, trace, row):
         newName = textBox.text()
@@ -380,17 +414,6 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.plot.getPlotItem().getAxis('left').setPen(self.axisColor)
         self.plot.getPlotItem().getAxis('bottom').setPen(self.axisColor)
 
-    def popup_menu(self):
-        """Creates a drop down menu for the selection of shapes."""
-        popup = QtGui.QMenu()
-    
-        popup.addAction("Circle").triggered.connect(self.setPointsCircle)
-        popup.addAction("Square").triggered.connect(self.setPointsSquare)
-        popup.addAction("Triangle").triggered.connect(self.setPointsTriangle)
-        popup.addAction("Diamond").triggered.connect(self.setPointsDiamond)
-        popup.addAction("Plus").triggered.connect(self.setPointsPlus)                                                         
-        popup.exec_(self.list_pointShapes.get_last_pos())
-
     def setPointsCircle(self):
         """ Sets the points to circles."""
         self.curPlot.setSymbolScatter('o')
@@ -425,6 +448,21 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         """Change the current editable plot to that in the COMBOBOX_SELECTPLOT.""" 
         index = self.comboBox_selectPlot.currentIndex()
         self.changeToIndex(index)
+
+    def selectPointType(self):
+        index = self.comboBox_symbol.currentIndex()
+        if index == 0:
+            self.setPointsCircle()
+        if index == 1:
+            self.setPointsSquare()
+        if index == 2:
+            self.setPointsTriangle()
+        if index == 3:
+            self.setPointsDiamond()
+        if index == 4:
+            self.setPointsPlus()
+        else:
+            raise GraphException("Can't set point type to None. {}".format(index))
 
     def changeToSC(self, sc):
         """Change the current plot to SC."""
