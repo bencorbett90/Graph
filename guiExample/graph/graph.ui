@@ -75,14 +75,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QComboBox" name="comboBox_selectPlot">
-              <property name="editable">
-               <bool>false</bool>
-              </property>
-              <property name="currentText">
-               <string notr="true"/>
-              </property>
-             </widget>
+             <widget class="QComboBox" name="comboBox_selectPlot"/>
             </item>
             <item>
              <widget class="QCheckBox" name="checkBox_connect">
@@ -111,6 +104,13 @@
               </property>
               <property name="checked">
                <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="checkBox_legend">
+              <property name="text">
+               <string>Legend</string>
               </property>
              </widget>
             </item>
@@ -435,11 +435,22 @@
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="btn_newTrace">
-           <property name="text">
-            <string>Create New Trace</string>
-           </property>
-          </widget>
+          <layout class="QHBoxLayout" name="horizontalLayout_5">
+           <item>
+            <widget class="QPushButton" name="btn_newPlot">
+             <property name="text">
+              <string>Create New Plot</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="btn_newImage">
+             <property name="text">
+              <string>Create New Image</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </item>
         </layout>
        </widget>

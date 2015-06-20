@@ -104,6 +104,20 @@ class DataTxtFile(DataStream):
         self.data = np.array(points)
         self.shape = self.data.shape
 
+    def indexedArray(self, *args):
+        """Return an array of my data indexed by dimensions in *args."""
+        indexDims = *args
+        dataDims = []
+        for i in range(self.dimensions())
+            if i not in indexDims:
+                dataDims += [i]
+
+        dataShape = []
+        dataArray = np.zeros()
+        for point in self.data()
+
+
+
     def destroy(self):
         raise NotImplementedError()
 

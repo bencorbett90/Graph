@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'graph/graph.ui'
 #
-# Created: Wed Jun 17 17:39:39 2015
+# Created: Thu Jun 18 20:29:08 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -65,8 +65,6 @@ class Ui_MainWindow(object):
         self.label_11.setObjectName(_fromUtf8("label_11"))
         self.verticalLayout.addWidget(self.label_11)
         self.comboBox_selectPlot = QtGui.QComboBox(self.layoutWidget)
-        self.comboBox_selectPlot.setEditable(False)
-        # self.comboBox_selectPlot.setCurrentText(_fromUtf8(""))
         self.comboBox_selectPlot.setObjectName(_fromUtf8("comboBox_selectPlot"))
         self.verticalLayout.addWidget(self.comboBox_selectPlot)
         self.checkBox_connect = QtGui.QCheckBox(self.layoutWidget)
@@ -81,6 +79,9 @@ class Ui_MainWindow(object):
         self.checkBox_grid.setChecked(True)
         self.checkBox_grid.setObjectName(_fromUtf8("checkBox_grid"))
         self.verticalLayout.addWidget(self.checkBox_grid)
+        self.checkBox_legend = QtGui.QCheckBox(self.layoutWidget)
+        self.checkBox_legend.setObjectName(_fromUtf8("checkBox_legend"))
+        self.verticalLayout.addWidget(self.checkBox_legend)
         self.btn_color1 = ColorButton(self.layoutWidget)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -205,9 +206,15 @@ class Ui_MainWindow(object):
         self.tree_trace.setColumnCount(4)
         self.tree_trace.setObjectName(_fromUtf8("tree_trace"))
         self.verticalLayout_5.addWidget(self.splitter_4)
-        self.btn_newTrace = QtGui.QPushButton(self.tab_2)
-        self.btn_newTrace.setObjectName(_fromUtf8("btn_newTrace"))
-        self.verticalLayout_5.addWidget(self.btn_newTrace)
+        self.horizontalLayout_5 = QtGui.QHBoxLayout()
+        self.horizontalLayout_5.setObjectName(_fromUtf8("horizontalLayout_5"))
+        self.btn_newPlot = QtGui.QPushButton(self.tab_2)
+        self.btn_newPlot.setObjectName(_fromUtf8("btn_newPlot"))
+        self.horizontalLayout_5.addWidget(self.btn_newPlot)
+        self.btn_newImage = QtGui.QPushButton(self.tab_2)
+        self.btn_newImage.setObjectName(_fromUtf8("btn_newImage"))
+        self.horizontalLayout_5.addWidget(self.btn_newImage)
+        self.verticalLayout_5.addLayout(self.horizontalLayout_5)
         self.tabWidget.addTab(self.tab_2, _fromUtf8(""))
         self.tab_3 = QtGui.QWidget()
         self.tab_3.setObjectName(_fromUtf8("tab_3"))
@@ -379,7 +386,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuFile.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(1)
+        self.tabWidget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -388,6 +395,7 @@ class Ui_MainWindow(object):
         self.checkBox_connect.setText(_translate("MainWindow", "Connect", None))
         self.checkBox_points.setText(_translate("MainWindow", "Points", None))
         self.checkBox_grid.setText(_translate("MainWindow", "Grid", None))
+        self.checkBox_legend.setText(_translate("MainWindow", "Legend", None))
         self.label_5.setText(_translate("MainWindow", "Background Color", None))
         self.label_6.setText(_translate("MainWindow", "Line Color", None))
         self.label_7.setText(_translate("MainWindow", "Point Color", None))
@@ -401,7 +409,8 @@ class Ui_MainWindow(object):
         self.tree_trace.headerItem().setText(0, _translate("MainWindow", "Traces", None))
         self.tree_trace.headerItem().setText(1, _translate("MainWindow", "\"\"", None))
         self.tree_trace.headerItem().setText(2, _translate("MainWindow", "\"\"", None))
-        self.btn_newTrace.setText(_translate("MainWindow", "Create New Trace", None))
+        self.btn_newPlot.setText(_translate("MainWindow", "Create New Plot", None))
+        self.btn_newImage.setText(_translate("MainWindow", "Create New Image", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("MainWindow", "Data", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), _translate("MainWindow", "Calculate", None))
         self.label_3.setText(_translate("MainWindow", "x min", None))

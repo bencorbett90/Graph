@@ -15,11 +15,16 @@ class TraceItem(object):
         self.id = TraceItem.count
         TraceItem.count += 1
         self.trace = None
+        self.dimensionNames = []
         if data != np.zeros(0) and plotType != None:
             self.loadData(data, plotType)
+        elif plotType == TraceItem.SC:
+            self.trace = ScatterCurve()
+        elif plotType == TraceItem.IM:
+            self.trace = ImagePellot()
 
     def setName(self, newName):
-        self.name = newName
+        self.name = str(newName)
 
     def addTo(self, plotItem):
         self.trace.addTo(plotItem)
@@ -61,9 +66,13 @@ class TraceItem(object):
         y = dimList[1]
         if len(dimList) > 2:
             color = dimList[2:]
-        
+    
+    def onClick(self, f):
+        if self.isSC():
+            self.trace.clickedConnect(f)
+        elif self.isImage():
+            self.trace.sigClicked.connect(f)
 
-            
     def validateData(self, data):
         if len(data) < 2:
             raise GraphException("Must select at least 2 dimensions to plot. Cannot create trace.")
@@ -100,9 +109,12 @@ class ScatterCurve(object):
         self.lineSize = 3
         self.showCurve = True
         self.showScatter = True
+        self.symbol = 'o'
         self.scatterPlot = pqg.ScatterPlotItem()
         self.curvePlot = pqg.PlotCurveItem()
         self.curvePlot.setClickable(True, 10)
+        # self.opts = pqg.PlotDataItem().opts
+        # self.updateOps()
         if x != None and y != None:
             self.xData = x
             self.yData = y
@@ -138,23 +150,34 @@ class ScatterCurve(object):
         self.scatterPlot.sigClicked.connect(f)
         self.curvePlot.sigClicked.connect(f)
 
+    # # def updateOps(self):
+    #     self.opts['pen'] = pqg.mkPen(self.lineColor, width = self.lineSize)
+    #     self.opts['symbolSize'] = self.pointSize
+    #     self.opts['symbolBrush'] = self.pointColor
+    #     self.opts['symbol'] = self.symbol
+    #     print(self.opts)
+
     ############################################################
     # The following methods wrap methods from ScatterPlotItem. #
     ############################################################
     def setBrushScatter(self, *args, **kargs):
         """Wraps setBrush from ScatterPlotItem."""
+        # self.updateOps()
         return self.scatterPlot.setBrush(*args, **kargs)
 
     def setSizeScatter(self, size, update = True, dataSet = None, mask = None):
         """Wraps setSize from ScatterPlotItem."""
+        # self.updateOps()
         return self.scatterPlot.setSize(size, update, dataSet, mask)
 
     def setSymbolScatter(self, symbol, update = True, dataSet = None, mask = None):
         """Wraps setSymbol from ScatterPlotItem."""
+        # self.updateOps()
         return self.scatterPlot.setSymbol(symbol, update, dataSet, mask)
 
     def setPenScatter(self, *args, **kargs):
         """Wraps setPen from ScatterPlotItem."""
+        # self.updateOps()
         return self.scatterPlot.setPen(*args, **kargs)
 
     ##########################################################
@@ -162,10 +185,12 @@ class ScatterCurve(object):
     ##########################################################
     def setBrushCurve(self, *args, **kargs):
         """Wraps setBrush from PlotCurveItem."""
+        # self.updateOps()
         return self.curvePlot.setBrush(*args, **kargs)
 
     def setPenCurve(self, *args, **kargs):
         """Wraps setPen from PlotCurveItem."""
+        # self.updateOps()
         return self.curvePlot.setPen(*args, **kargs)
 
     def mouseShapeCurve(self):
@@ -178,10 +203,12 @@ class ScatterCurve(object):
 
     def setFillLevel(self, level):
         """Wraps setFillLevel from PlotCurveItem."""
+        # self.updateOps()
         return self.curvePlot.setFillLevel(level)
 
     def setShadowPen(self, *args, **kargs):
         """Wraps setShadowPen from PlotCurveItem."""
+        # self.updateOps()
         return self.curvePlot.setShadowPen(*args, **kargs)
 
 
