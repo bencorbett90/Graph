@@ -1,219 +1,139 @@
 import pyqtgraph as pqg
 import numpy as np
-from scattercurve import ScatterCurve
+from pyqtgraph import PlotDataItem
 from pyqtgraph import ImageItem
 from graphexception import GraphException
 
-class TraceItem(object):
+class TraceItem(PlotDataItem, object):
     count = 0
-    IM = 0
-    SC = 1
 
-
-    def __init__(self, data = np.zeros(0), plotType = None):
+    def __init__(self,  *args, **kargs):
+        super(self.__class__, self).__init__(*args, **kargs)
         self.name = None
-        self.id = TraceItem.count
-        TraceItem.count += 1
-        self.trace = None
-        self.dimensionNames = []
-        if data != np.zeros(0) and plotType != None:
-            self.loadData(data, plotType)
-        elif plotType == TraceItem.SC:
-            self.trace = ScatterCurve()
-        elif plotType == TraceItem.IM:
-            self.trace = ImagePellot()
-
-    def setName(self, newName):
-        self.name = str(newName)
-
-    def addTo(self, plotItem):
-        self.trace.addTo(plotItem)
-
-    def removeFrom(self, plotItem):
-        self.trace.removeFrom(plotItem)
-
-    def loadData(self, data, plotType):
-        if len(data) < 2:
-            raise GraphException("Must select at least 2 dimensions to plot. Cannot create trace.")
-        elif plotType == TraceItem.SC:
-            self.trace = ScatterCurve()
-            self.setData(data)
-        elif plotType == TraceItem.IM:
-            self.trace = ImagePlot()
-            self.setData(data)
-        else:
-            raise GraphException("Cannont create a trace with {} dimensions.".format(len(data)))
-
-    def setData(self, dimList):
-        """dimList is a list of dimension."""
-        self.validateData(dimList)
-        if self.isSC():
-            self.trace.setPoints(dimList[0], dimList[1])
-        if self.isImage():
-            numDim = len(dimList)
-            if numDim not in (2, 5, 6):
-                raise GraphException("Can only create 2D Plots with 0, 3, or 4 color dimensions. {}".format(numDim))
-            
-            # comglomorate dimensions into a single array.
-            data = self.createImageArray(dimList)
-            self.trace.setImage(image = data)
-
-
-    def createImageArray(self, dimList):
-        """Take a list of x, y, color data and create a numpy array indexed by
-        x, y that contains the color at each (x, y) pair."""
-        x = dimList[0]
-        y = dimList[1]
-        if len(dimList) > 2:
-            color = dimList[2:]
-    
-    def onClick(self, f):
-        if self.isSC():
-            self.trace.clickedConnect(f)
-        elif self.isImage():
-            self.trace.sigClicked.connect(f)
-
-    def validateData(self, data):
-        if len(data) < 2:
-            raise GraphException("Must select at least 2 dimensions to plot. Cannot create trace.")
-
-        length = len(data[0])
-        for i in range(len(data)):
-            dim = data[i]
-            if type(dim) != np.ndarray:
-                raise GraphException("Dimension {} is not a numpy ndarray. Cannot create trace".format(dim))
-            if len(dim) != length:
-                raise GraphException("Dimension {} is not the correct length. Cannot create trace.")
-
-    def isImage(self):
-        return isinstance(self.trace, ImageItem)
-
-    def isSC(self):
-        return isinstance(self.trace, ScatterCurve)
-
-    def __getattribute__(self, name):
-        try:
-            return object.__getattribute__(self, name)
-        except AttributeError:
-            if self.trace == None:
-                raise GraphException("No trace has been instantiated.")
-            return object.__getattribute__(self.trace, name)
-
-class ScatterCurve(object):
-    count = 0
-
-    def __init__(self, x = None, y = None):
         self.lineColor = pqg.mkColor(0, 0, 0, 255)
         self.pointColor = pqg.mkColor(0, 0, 0, 255)
         self.pointSize = 3
         self.lineSize = 3
+        self.symbol = 'o'
         self.showCurve = True
         self.showScatter = True
-        self.symbol = 'o'
-        self.scatterPlot = pqg.ScatterPlotItem()
-        self.curvePlot = pqg.PlotCurveItem()
-        self.curvePlot.setClickable(True, 10)
-        # self.opts = pqg.PlotDataItem().opts
-        # self.updateOps()
-        if x != None and y != None:
-            self.xData = x
-            self.yData = y
-            self.setPoints()
-    
-    def setPoints(self, x = np.zeros(0), y = np.zeros(0), pxMode = True, antialias = False):
-        """Set the data for the ScatterPlotItem and PlotCurveItem.
+        self.comboBoxes = ()
+        
+        self.id = TraceItem.count
+        TraceItem.count += 1
 
-        pxMode -- if True then the scatter plot points are always the same size in
-                  pixels, regardless of scaling.
-        antialias = whether to draw the symbols and curve with antialiasing.
-        """
-        if x == np.zeros(0) and y == np.zeros(0):
-            x = self.xData
-            y = self.yData
+    def addToTree(self, Graph):
+        """Add my TraceItem to GRAPH.TREE_TRACE."""
 
-        curvePen = pqg.mkPen(self.lineColor, width=self.lineSize)
-        self.curvePlot.setData(x, y, pen=curvePen)
-        self.scatterPlot.setData(x, y, pen=self.pointColor, size=self.pointSize)
+        tree = Graph.tree_trace
+        updateName = Graph.setTraceName
+        toggleShow = Graph.toggleShow
+        updateData = Graph.setSCData
+        comboNames = Graph.sourceNames(1)
+
+        parentTWI = QtGui.QTreeWidgetItem()
+        tree.addTopLevelItem(parentTWI)
+
+        nameBox = QtGui.QLineEdit(self.name)
+        f = lambda name: updateName(self, name, nameBox)
+        nameBox.textEdited.connect(f)
+        tree.setItemWidget(parentTWI, 0, nameBox)
+
+        checkBoxShow = QtGui.QCheckBox("Show")
+        show = lambda: toggleShow(trace, checkBoxShow)
+        checkBoxShow.stateChanged.connect(show)
+        checkBoxShow.setChecked(True)
+        tree.setItemWidget(parentTWI, 1, checkBoxShow)
+  
+        childX = QtGui.QTreeWidgetItem(['x values'])
+        parentTWI.addChild(childX)
+        combo1 = QtGui.QComboBox()
+        
+        combo1.addItems(comboNames)
+        tree.setItemWidget(childX, 1, combo1)
+
+        childY = QtGui.QTreeWidgetItem(['y values'])
+        parentTWI.addChild(childY)
+        combo2 = QtGui.QComboBox()
+        
+        combo2.addItems(comboNames)
+        tree.setItemWidget(childY, 1, combo2)
+
+        curText1 = combo1.currentText
+        curText2 = combo2.currentText
+        loadData = lambda name: updateData(trace, curText1(), curText2())
+        combo1.activated.connect(loadData)
+        combo2.activated.connect(loadData)
+        self.comboBoxes = (combo1, combo2)
+
+    def setSCData(self, trace, dim1String, dim2String):
+        dsX, dimX = self.dimDict[str(dim1String)]
+        x = dsX.getDimension(dimX)
+
+        dsY, dimY = self.dimDict[str(dim2String)]
+        y = dsY.getDimension(dimY)
+
+        if len(x) != len(y):
+            message = "Dimensions are of unequal lengths. The trace won't be updated until the selected dimensions are valid."
+            raise GraphException(message)
+        trace.setData((x, y))
+
+
+    def setName(self, newName):
+        """Set SELF's name to NEWNAME."""
+        self.name = str(newName)
 
     def addTo(self, plotItem):
-        """Add my ScatterPlotItem and PlotCurveItem to PLOTITEM."""
-        plotItem.addItem(self.curvePlot)
-        plotItem.addItem(self.scatterPlot)
+        """ADD SELF to PLOTITEM."""
+        plotItem.addItem(self)
 
     def removeFrom(self, plotItem):
-        """Remove my ScatterPlotItem and PlotCurveItem from PLOTITEM"""
-        plotItem.removeItem(self.scatterPlot)
-        plotItem.removeItem(self.curvePlot)
+        """Remove SELF from PLOTITEM."""
+        plotItem.removeItem(self)
 
-    def clickedConnect(self, f):
-        """Connect some function f to be called when SCATTERPLOT or SCATTERCURVE is clicked."""
-        self.scatterPlot.sigClicked.connect(f)
-        self.curvePlot.sigClicked.connect(f)
+    def setPoints(self, x, y):
+        """dimList is a list of dimension."""
+        LinePen = pqg.mkPen(self.lineColor, width = self.lineSize)
+        self.setData(x, y, symbol = self.symbol, symbolBrush = self.pointColor,
+                    symbolSize = self.pointSize, pen = LinePen)
+    
+    def onClick(self, f):
+        """Call F whenever SELF is clicked."""
+        self.sigClicked.connect(f)
 
-    # # def updateOps(self):
-    #     self.opts['pen'] = pqg.mkPen(self.lineColor, width = self.lineSize)
-    #     self.opts['symbolSize'] = self.pointSize
-    #     self.opts['symbolBrush'] = self.pointColor
-    #     self.opts['symbol'] = self.symbol
-    #     print(self.opts)
-
-    ############################################################
-    # The following methods wrap methods from ScatterPlotItem. #
-    ############################################################
     def setBrushScatter(self, *args, **kargs):
-        """Wraps setBrush from ScatterPlotItem."""
-        # self.updateOps()
-        return self.scatterPlot.setBrush(*args, **kargs)
+        """Set my color of my points"""
+        return self.setSymbolBrush(args, kargs)
 
-    def setSizeScatter(self, size, update = True, dataSet = None, mask = None):
-        """Wraps setSize from ScatterPlotItem."""
-        # self.updateOps()
-        return self.scatterPlot.setSize(size, update, dataSet, mask)
+    def setSizeScatter(self, size):
+        """Set the size of my points."""
+        return self.setSymbolSize(size)
 
-    def setSymbolScatter(self, symbol, update = True, dataSet = None, mask = None):
-        """Wraps setSymbol from ScatterPlotItem."""
-        # self.updateOps()
-        return self.scatterPlot.setSymbol(symbol, update, dataSet, mask)
+    def setSymbolScatter(self, symbol):
+        """Set the symbol used for my scatter plot points."""
+        return self.setSymbol(symbol)
 
     def setPenScatter(self, *args, **kargs):
-        """Wraps setPen from ScatterPlotItem."""
-        # self.updateOps()
-        return self.scatterPlot.setPen(*args, **kargs)
-
-    ##########################################################
-    # The following methods wrap methods from PlotCurveItem. #
-    ##########################################################
-    def setBrushCurve(self, *args, **kargs):
-        """Wraps setBrush from PlotCurveItem."""
-        # self.updateOps()
-        return self.curvePlot.setBrush(*args, **kargs)
+        """Set the pen outlining my points."""
+        return self.setSymbolPen(*args, **kargs)
 
     def setPenCurve(self, *args, **kargs):
-        """Wraps setPen from PlotCurveItem."""
-        # self.updateOps()
-        return self.curvePlot.setPen(*args, **kargs)
+        """Set the color of my curve."""
+        return self.setPen(*args, **kargs)
 
-    def mouseShapeCurve(self):
-        """Wraps mouseShape from PlotCurveItem."""
-        return self.curvePlot.mouseShape()
+    def setBrushFill(self, *args, **kargs):
+        """Set the brush used to fill in below my curve."""
+        return self.setBrush(*args, **kargs)   
 
-    def setClickableCurve(self, s, width = None):
-        """Wraps setClickable from PlotCurveItem."""
-        return self.curvePlot.setClickable(s, width)
+    def setFillLvl(self, level):
+        """Set the level to fill in below my curve."""
+        return self.setFillLevel(level)
 
-    def setFillLevel(self, level):
-        """Wraps setFillLevel from PlotCurveItem."""
-        # self.updateOps()
-        return self.curvePlot.setFillLevel(level)
-
-    def setShadowPen(self, *args, **kargs):
-        """Wraps setShadowPen from PlotCurveItem."""
-        # self.updateOps()
-        return self.curvePlot.setShadowPen(*args, **kargs)
-
+    def setPenShadow(self, *args, **kargs):
+        """Set the pen that draws the shadow of my curve."""
+        return self.setShadowPen(*args, **kargs)
 
 class ImagePlot(ImageItem):
-    
     def __init__(self):
         super(self.__class__, self).__init__()
 

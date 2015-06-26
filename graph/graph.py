@@ -5,7 +5,7 @@ import numpy as np
 import Tkinter
 from tkFileDialog import askopenfilename
 
-from datastream import DataTxtFile, DataStream
+from datastream import DataStream, SliceTreeItem
 from graph_ui import Ui_MainWindow
 from graphexception import GraphException
 from traceitem import TraceItem
@@ -21,15 +21,14 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.axisColor = pqg.mkColor(0, 0, 0, 255)
         self.plots = []
         self.curPlot = TraceItem()
-        self.tabs = ['None', 'Tab1']
         self.dimDict = {}
         self.traces = {}
-        self.dimensionSelectors = []
-
+        self.dataStreams = {}
+        self.traceCombos = []
         
         # Connecting the open file menu option
-        self.file_open.triggered.connect(self.loadTxtFile)
-        self.btn_loadData.clicked.connect(self.loadTxtFile)
+        self.file_open.triggered.connect(self.loadFile)
+        self.btn_loadData.clicked.connect(self.loadFile)
         
         # Add the grid, and get rid of the autoscale button.
         self.plot.getPlotItem().showGrid(True, True, 1)
@@ -92,16 +91,6 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
 
         self.curPlot.onClick(lambda: self.changeToTrace(trace))
 
-    def createNewName(self, baseName, dict):
-        """Create a new name off of BASENAME that is not a key in DICT."""
-        index = 0
-        guess = baseName.format(0)
-        while guess in dict.keys():
-            index += 1
-            guess = baseName.format(index)
-        return guess
-
-
     def syncButtons(self):
         """Updates the GUI buttons to display the appropriate values when a new
         plot is selected or loaded."""
@@ -112,91 +101,106 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.checkBox_points.setChecked(self.curPlot.showScatter)
         self.checkBox_connect.setChecked(self.curPlot.showCurve)
 
-    def loadTxtFile(self):
-        """ Opens a browser for the user to select a file and then
-            attempts to graph the file. """
 
+    def loadFile(self):
         filePath = getFilePath()
-        txtFile = DataTxtFile(filePath)
-        self.addDataToTree(txtFile)
+        ds = DataStream(filePath)
+        ds.addToTree(self)
+        self.dataStreams[ds.name] = ds
+        self.addDataSources(ds)
 
-    def addDataToTree(self, dataStream):
-        """Add a DataStream DATASTREAM to the TREE_DATA."""
-        tree = self.tree_data
-        
-        # create a new QTreeWidgetItem that will be the parent TreeWidget.
-        parentTW = QtGui.QTreeWidgetItem([dataStream.getName()])
-        
-        # Since the parent TreeWidgetItem represents the DataStream and not
-        # one of it's dimensions, set its DIMDATA field to NONE.
-        parentTW.dimData = np.zeros(0)
-        parentTW.parent = True
+    def createNewSlice(self, ds):
+        name = uniqueName("Slice {}", len(ds.slices), ds.slices)
+        sliceTW = SliceTreeItem(name, ds.sliceParentTW, ds, self.updateSlice)
+        index = ds.sliceParentTW.childCount() - 2
+        ds.sliceParentTW.insertChild(index, sliceTW)
+        ds.slices[name] = sliceTW
 
-        
+    def updateSlice(self, s):
+        """Update SELF.SLICE to accurately represent the contents of my LineEdits."""
+        tempSlice = [[0 , 0]] * len(s.slice)
+        for n in range(s.childCount() - 1):
+            child = s.child(n)
+            lineEdit = s.treeWidget().itemWidget(child, 1)
+            text = str(lineEdit.text())
+            text = text.strip()
+            if text == ":":
+                tempSlice[n] = [0, s.limits[n]]
+            else:
+                items = text.split(':')
+                if len(items) == 1:
+                    try:
+                        val = int(items[0])
+                    except ValueError:
+                        raise GraphException(items[0] + "is not a valid integer.")
+                    if val >= 0 and val < s.limits[n]:
+                        tempSlice[n] = [val]
+                    else:
+                        raise GraphException("{} is out of bounds.".format(val))
+                elif len(items) == 2:
+                    try:
+                        val1 = int(items[0])
+                        val2 = int(items[1])
+                    except ValueError:
+                        raise GraphException("{} or {} is not a valid integer.".format(items[0], items[1]))
+                    if val1 < val2 and val1 >= 0 and val2 < s.limits[n]:
+                        tempSlice[n] = [val1, val2]
+                    else:
+                        raise GraphException("One of either {} or {} is out of bounds.".format(items[0], items[1]))
+                else:
+                    raise GraphException("Not a valid slice.")
 
-        # populate the TreeWidget with children that comprise it's dimensions.
-        for dim in range(dataStream.dimensions()):
-            
-            # create a new child TreeWidget and set it to be checkable
-            childTW = QtGui.QTreeWidgetItem([dataStream.dimName(dim)])
-            childTW.setFlags(QtCore.Qt.ItemIsUserCheckable)
-            childTW.setCheckState(1, QtCore.Qt.Unchecked)
-            
-            # attatch the dimension data to the child
-            childTW.dimData = dataStream.getDimension(dim)
-            childTW.parent = False
+        s.slice = tempSlice
+        s.setText(1, s.getSliceStr())
 
-            # Set the text color
-            childTW.setTextColor(0, QtGui.QColor(0, 0, 0))
-            childTW.setTextColor(1, QtGui.QColor(0, 0, 0))
-            
-            # add the child to the parent TreeWidget 
-            parentTW.addChild(childTW)
-
-        # add my dimensions to the list of selectable dimensions
-        self.addDimensions(dataStream) 
-
-        # add the parent TreeWidgetItem to the tree
-        tree.addTopLevelItem(parentTW)
-
-        # finally add the default view of this stream to the Table and graph it 
-        self.addToTree(dataStream)
-
-    def addDimensions(self, dataStream):
-        newDimNames = []
-        for dim in range(dataStream.dimensions()):
+    def addDataSources(self, dataStream):
+        sourceNames = []
+        for arg in range(dataStream.getNumArgs()):
             string = dataStream.name + '.'
-            string += dataStream.dimName(dim)
-            self.dimDict[string] = (dataStream, dim)
-            newDimNames += [string]
-        self.updateComboDim(newDimNames)
+            string += dataStream.argNames[arg]
+            self.dimDict[string] = (dataStream, 'ARG', arg)
+            sourceNames += [string]
+
+        for val in range(dataStream.getNumVals()):
+            string = dataStream.name + '.'
+            string += dataStream.valNames[val]
+            self.dimDict[string] = (dataStream, 'VAL', val)
+            sourceNames += [string]
+
+        self.updateSources(sourceNames)
+
+    def updateSources(self, sourceNames):
+        """Add list of names dataNames to the data selecting combo boxes."""
+        for name in sourceNames:
+            ds, source, tag = self.dimDict[name]
+            addToTrace = (source == 'arg')
+            addToTrace |= (source == 'val' and len(ds.shape) == 1)
+            if addToTrace:
+                for trace in self.traces:
+                    for comboBox in trace.comboBoxes:
+                        comboBox.addItems(name)
 
 
-    def updateComboDim(self, newDimNames):
-        for comboBox in self.dimensionSelectors:
-            comboBox.addItems(newDimNames)
+    def sourceNames(self, dim):
+        """Return a list of current data source (args, vals, slices) names
+        of dimension DIM."""
+        names = []
+        for ds, source, tag in self.dimDict.values():
+            if ds.getSourceDim(source, tag) == 1:
+                names += ds.getSourceName(source, num)
 
     def treeItemClicked(self, item, column):
-        """Handles a click in column COLUMN of item ITEM."""
+        """Handles a click in column COLUMN of item ITEM in SELF.TREE_DATA."""
+        return
         
-        # if it's the parent item do nothing.
-        if item.parent == True:
-            return
-        # if ITEM is unchecked: check it, and add the associated data  
-        elif item.checkState(1) == QtCore.Qt.Unchecked:
-            item.setCheckState(1, QtCore.Qt.Checked)
-
-        # else it's checked, so uncheck it and remove it's dimension from the list.
-        else:
-            item.setCheckState(1, QtCore.Qt.Unchecked)
-
-
     def newImage(self):
         raise GraphException("Not implimented")
 
     def newSC(self):
-        trace = TraceItem(plotType = TraceItem.SC)
-        self.addTraceToTree(trace, TraceItem.SC)
+        trace = TraceItem()
+        trace.setName(uniqueName("Trace {}", 0, self.traces))
+        self.traces[trace.name] = trace
+        trace.addToTree(self)
 
     def showLegend(self):
         legend = pqg.LegendItem()
@@ -212,89 +216,38 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
 
     def addToTree(self, dataStream):
         """Add a DataStream DATASTREAM to the TREE_PLOTS."""
-        dimNum = dataStream.dimensions()
-        if dimNum < 2:
-            raise GraphException("Must have at least 2 dimensions to plot")
-        if dimNum < 5:
-            data = [dataStream.getDimension(i) for i in range(0, 2)]
-            trace = TraceItem(data, TraceItem.SC)
-            dim1 = dataStream.name + '.' + dataStream.dimName(0)
-            dim2 = dataStream.name + '.' + dataStream.dimName(1)
-            trace.dimensionNames = [str(dim1), str(dim2)]
-        if dimNum >= 5:
-            dimNum = min(dimNum, 6)
-            data = [dataStream.getDimension(i) for i in range(0, dimNum)]
-            trace = TraceItem(data, TraceItem.IM)
+        raise NotImplementedError()
+        # dimNum = dataStream.dimensions()
+        # if dimNum < 2:
+        #     raise GraphException("Must have at least 2 dimensions to plot")
+        # if dimNum < 5:
+        #     data = [dataStream.getDimension(i) for i in range(0, 2)]
+        #     trace = TraceItem(data, TraceItem.SC)
+        #     dim1 = dataStream.name + '.' + dataStream.dimName(0)
+        #     dim2 = dataStream.name + '.' + dataStream.dimName(1)
+        #     trace.dimensionNames = [str(dim1), str(dim2)]
+        # if dimNum >= 5:
+        #     dimNum = min(dimNum, 6)
+        #     data = [dataStream.getDimension(i) for i in range(0, dimNum)]
+        #     trace = TraceItem(data, TraceItem.IM)
 
-        self.addTraceToTree(trace)
+        # trace.setName(uniqueName("Trace {}", 0, self.traces))
+        # self.traces[trace.name] = trace
+        # self.addTraceToTree(trace, self.traces)
     
 
-    def addTraceToTree(self, trace, traceType = TraceItem.SC):
-        trace.setName(self.createNewName("Trace {}", self.traces))
-        self.traces[trace.name] = trace
-
-        tree = self.tree_trace
-        parentTWI = QtGui.QTreeWidgetItem()
-        tree.addTopLevelItem(parentTWI)
-
-        nameBox = QtGui.QLineEdit(trace.name)
-        updateName = lambda name: self.setTraceName(trace, name, nameBox)
-        nameBox.textEdited.connect(updateName)
-        tree.setItemWidget(parentTWI, 0, nameBox)
-
-        checkBoxShow = QtGui.QCheckBox("Show")
-        show = lambda: self.toggleShow(trace, checkBoxShow)
-        checkBoxShow.stateChanged.connect(show)
-        checkBoxShow.setChecked(True)
-        tree.setItemWidget(parentTWI, 1, checkBoxShow)
-        
-        checkBoxUpdate = QtGui.QCheckBox("Update")
-        update = lambda: self.toggleUpdate(trace, checkBoxUpdate)
-        checkBoxUpdate.setChecked(False)
-        checkBoxUpdate.stateChanged.connect(update)
-        tree.setItemWidget(parentTWI, 2, checkBoxUpdate) 
-  
-        if traceType == TraceItem.SC:
-            childX = QtGui.QTreeWidgetItem(['x values'])
-            parentTWI.addChild(childX)
-            combo1 = QtGui.QComboBox()
-            combo1.addItems(self.dimDict.keys())
-            tree.setItemWidget(childX, 1, combo1)
-
-            childY = QtGui.QTreeWidgetItem(['y values'])
-            parentTWI.addChild(childY)
-            combo2 = QtGui.QComboBox()
-            combo2.addItems(self.dimDict.keys())
-            tree.setItemWidget(childY, 1, combo2)
-
-            curText1 = combo1.currentText
-            curText2 = combo2.currentText
-            loadData = lambda name: self.setSCData(trace, curText1(), curText2())
-            combo1.activated.connect(loadData)
-            combo2.activated.connect(loadData)
-            self.dimensionSelectors += [combo1, combo2]
-
-            if len(trace.dimensionNames) == 2:
-                dim1, dim2 = trace.dimensionNames
-                index1 = combo1.findText(dim1, QtCore.Qt.MatchExactly)
-                index2 = combo2.findText(dim2, QtCore.Qt.MatchExactly)
-                combo1.setCurrentIndex(index1)
-                combo2.setCurrentIndex(index2)
-
     def setSCData(self, trace, dim1String, dim2String):
-        if not trace.isSC():
-            raise GraphException("Trace {} is not a ScatterCurve".format(trace.name))
-        else:
-            dsX, dimX = self.dimDict[str(dim1String)]
-            x = dsX.getDimension(dimX)
+        dsX, dimX = self.dimDict[str(dim1String)]
+        x = dsX.getDimension(dimX)
 
-            dsY, dimY = self.dimDict[str(dim2String)]
-            y = dsY.getDimension(dimY)
+        dsY, dimY = self.dimDict[str(dim2String)]
+        y = dsY.getDimension(dimY)
 
-            if len(x) != len(y):
-                message = "Dimensions are of unequal lengths. The trace won't be updated unless the selected dimensions are valid."
-                raise GraphException(message)
-            trace.setData((x, y))
+        if len(x) != len(y):
+            message = "Dimensions are of unequal lengths. The trace won't be updated unless the selected dimensions are valid."
+            raise GraphException(message)
+        
+        trace.setPoints(x, y)
 
     def setTraceName(self, trace, name, lineEdit):
         oldName = trace.name
@@ -308,17 +261,6 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
             index = self.comboBox_selectPlot.findText(oldName)
             self.comboBox_selectPlot.setItemText(index, name)
 
-
-    def uniquePlotName(self, name, exceptRow):
-        """Search the plot table for names, and return True if name is not one of them."""
-        names = []
-        for row in range(self.table_plots.rowCount()):
-            textBox = self.table_plots.cellWidget(row, 0)
-            if row == exceptRow:
-                continue
-            if textBox != None:
-                names += [textBox.text()]
-        return name not in names
 
     def toggleUpdate(self, sc):
         raise NotImplementedError()
@@ -483,7 +425,6 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         """Change the current plot to TRACE."""
         self.changeToIndex(trace.name)
 
-
     def changeToIndex(self, name):
         """Change the current plot to SELF.PLOTS[INDEX]."""
         index = self.comboBox_selectPlot.findText(name, QtCore.Qt.MatchExactly)
@@ -504,7 +445,17 @@ def getFilePath():
     root.withdraw()
     
     # opens a new window, and returns the selected file's path.
-    return askopenfilename()
+    path = askopenfilename()
+    return path
+
+def uniqueName(baseName, baseNum, nameList):
+    """Return a new name formed from BASENAME.format(BASENUM) that is not
+    in nameList."""
+    name = baseName.format(baseNum)
+    while name in nameList:
+        baseNum += 1
+        name = baseName.format(baseNum)
+    return name
 
 
 pqg.setConfigOptions(background='w')
@@ -512,4 +463,4 @@ pqg.setConfigOptions(background='w')
 app = QtGui.QApplication(sys.argv)
 myWindow = MyWindowClass(None)
 myWindow.show()
-sys.exit(app.exec_())
+app.exec_()
