@@ -1,0 +1,4 @@
+Clean Up Ideas
+	change QComoboBoxes to pqg ComboBoxes
+	Create 2 new classes that wrap QTable for the Plot tab when switching between trace/image views 
+	
