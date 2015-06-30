@@ -12,6 +12,7 @@ int main(int argc, char **argv) {
 	}
 
 	sprintf(cmd, "python C:\\Anaconda\\Lib\\site-packages\\PyQt4\\uic\\pyuic.py %s", options);
+	print(cmd)
 	system(cmd);
 	return 0;
 }

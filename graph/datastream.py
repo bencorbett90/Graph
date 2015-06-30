@@ -4,7 +4,9 @@ import os
 from graphexception import GraphException
 import h5py
 
+
 class DataStream():
+
     def __init__(self, path):
         self.dataFile = None
         if path[-5:] == '.hdf5':
@@ -12,16 +14,30 @@ class DataStream():
         self.shape = None
         self.numArgs = 0
         self.numVals = 0
-        self.name = path
-        
+        self.name = shorten_filename(path)
+
         # Lists of arg and val names
         self.argNames = []
         self.valNames = []
-        
+
         # Dictionary from ints to SliceTreeItems
         self.slices = {}
-        
+
         self.getInfo()
+
+    def getData(self, source, tag):
+        """Source specifies one of ARG, VAL, or SLICE, and tag specifies
+        the number or string specifying the arg, val, or slice."""
+        if source == 'ARG':
+            return self.dataFile.loadArgs()[tag]
+        if source == 'VAL':
+            if self.numVals > 1:
+                return self.dataFile.slice('[..., {}]'.format(tag))
+            else:
+                data = self.dataFile.slice('[..., : ]')
+                return data
+        if source == 'SLICE':
+            return self.slices[tag].getSlice()
 
     def getSourceDim(self, source, tag):
         """Source specifies one of ARG, VAL, or SLICE, and tag specifies
@@ -46,9 +62,6 @@ class DataStream():
         if source == 'SLICE':
             return tag
 
-
-
-
     def LoadArgs(self):
         """Return a list of 1D numpy ndarrays compromising my arguments or independ variables"""
         return self.dataFile.loadArgs()
@@ -64,7 +77,7 @@ class DataStream():
     def getNumVals(self):
         """Return the number of my values or dependent variables."""
         return self.numVals
-    
+
     def getName(self):
         """Return the name of the data file."""
         return self.name
@@ -82,8 +95,8 @@ class DataStream():
             self.numVals = 1
         else:
             self.numVals = self.shape[-1]
-        self.argNames = [None] * self.numArgs
-        self.valNames = [None] * self.numVals
+        self.argNames = ["arg {}".format(i) for i in range(self.numArgs)]
+        self.valNames = ["val {}".format(i) for i in range(self.numVals)]
 
     def slice(self, sliceStr):
         """Return a slice through my map specified by PARAMS.
@@ -97,11 +110,9 @@ class DataStream():
         nameDict = Graph.dataStreams
         newSlice = Graph.createNewSlice
 
-        if self.name != None and self.name in nameDict.keys():
+        if self.name in nameDict.keys():
             baseName = self.name + '({})'
             self.name = uniqueName(baseName, 1, nameDict.keys())
-        else:
-            self.name = uniqueName("DataStream {}", len(nameDict), nameDict.keys())
 
         parentTW = QtGui.QTreeWidgetItem([self.name])
 
@@ -139,16 +150,17 @@ class DataStream():
         sliceBtnTW.btn = True
         sliceBtnTW.ds = self
         sliceBtn = QtGui.QPushButton('New Slice')
-        f = lambda : newSlice(self)
+        f = lambda: newSlice(self)
         sliceBtn.clicked.connect(f)
         self.sliceParentTW.addChild(sliceBtnTW)
         parentTW.addChild(self.sliceParentTW)
-        
+
         tree.addTopLevelItem(parentTW)
         tree.setItemWidget(sliceBtnTW, 0, sliceBtn)
 
 
 class HDF5File():
+
     def __init__(self, path):
         self.dataPath = path
 
@@ -161,6 +173,9 @@ class HDF5File():
         f.close()
         return args
 
+    def loadArg(self, n):
+        raise NotImplimentedError()
+
     def loadArrayMap(self):
         f = h5py.File(self.dataPath, 'r')
         arrayMap = f['vals'][..., :]
@@ -169,18 +184,19 @@ class HDF5File():
 
     def slice(self, sliceStr):
         f = h5py.File(self.dataPath, 'r')
-        dataMap = f['calib/vals/twpa thru']
-        evalStr = "dataMap[" + sliceStr + ']'
+        dataMap = f['vals']
+        evalStr = "dataMap" + sliceStr
+        print(evalStr)
         dataSlice = eval(evalStr)
         f.close()
         return dataSlice
 
 
-    
 class SliceTreeItem(QtGui.QTreeWidgetItem, object):
+
     """Represents a Slice in a QTreeWidgetItem"""
 
-    def __init__(self, name, parent, dataStream, update): 
+    def __init__(self, name, parent, dataStream, update):
         super(SliceTreeItem, self).__init__(parent)
         self.name = name
         self.ds = dataStream
@@ -188,15 +204,16 @@ class SliceTreeItem(QtGui.QTreeWidgetItem, object):
         self.limits = []
         for i in range(self.ds.numArgs):
             self.limits += [self.ds.shape[i]]
-        self.limits += [self.ds.numVals]
+        if self.ds.numVals > 1:
+            self.limits += [self.ds.numVals]
         self.slice = [[0, i] for i in self.limits]
 
         self.initChildren(update)
         self.setText(0, name)
         self.setText(1, self.getSliceStr())
-        
+
     def initChildren(self, update):
-        updateSlice = lambda : update(self)
+        updateSlice = lambda: update(self)
         for arg in range(self.ds.numArgs):
             argName = self.ds.argNames[arg]
             argTW = QtGui.QTreeWidgetItem([argName])
@@ -207,13 +224,14 @@ class SliceTreeItem(QtGui.QTreeWidgetItem, object):
             self.addChild(argTW)
             self.treeWidget().setItemWidget(argTW, 1, lineEdit)
 
-        valTW = QtGui.QTreeWidgetItem(['vals'])
-        lineEdit = QtGui.QLineEdit()
-        lineEdit.setText(' : ')
-        lineEdit.index = self.ds.numArgs
-        lineEdit.editingFinished.connect(updateSlice)
-        self.addChild(valTW)
-        self.treeWidget().setItemWidget(valTW, 1, lineEdit)
+        if self.ds.numVals > 1: 
+            valTW = QtGui.QTreeWidgetItem(['vals'])
+            lineEdit = QtGui.QLineEdit()
+            lineEdit.setText(' : ')
+            lineEdit.index = self.ds.numArgs
+            lineEdit.editingFinished.connect(updateSlice)
+            self.addChild(valTW)
+            self.treeWidget().setItemWidget(valTW, 1, lineEdit)
 
         sliceBtnTW = QtGui.QTreeWidgetItem()
         sliceBtn = QtGui.QPushButton('Print Slice')
@@ -226,19 +244,20 @@ class SliceTreeItem(QtGui.QTreeWidgetItem, object):
 
     def getSliceStr(self):
         """Get a string representing my slice."""
-        sliceStr = ''
+        sliceStr = '['
         for item in self.slice:
             if len(item) == 1:
                 sliceStr += '{}, '.format(item[0])
             elif len(item) == 2:
                 sliceStr += '{} : {}, '.format(item[0], item[1])
         sliceStr = sliceStr[0:-2]
+        sliceStr += ']'
         return sliceStr
 
     def getSlice(self):
         """Return the actual ndarray that I represent."""
         sliceStr = self.getSliceStr()
-        return ds.slice(sliceStr)
+        return self.ds.slice(sliceStr)
 
     def dimensions(self):
         """Return the number of indices needed to index into myself to get a scalar."""
@@ -246,6 +265,8 @@ class SliceTreeItem(QtGui.QTreeWidgetItem, object):
         for item in self.slice:
             if len(item) != 1:
                 dim += 1
+        return dim
+
 
 def uniqueName(baseName, baseNum, nameList):
     """Return a new name formed from BASENAME.format(BASENUM) that is not
@@ -255,3 +276,8 @@ def uniqueName(baseName, baseNum, nameList):
         baseNum += 1
         name = baseName.format(baseNum)
     return name
+
+
+def shorten_filename(filename):
+    f = os.path.split(filename)[1]
+    return "%s~%s" % (f[:3], f[-16:]) if len(f) > 19 else f
