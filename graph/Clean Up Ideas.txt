@@ -1,0 +1,7 @@
+Clean Up Ideas
+	change QComoboBoxes to pqg ComboBoxes
+	Add default view when selecting data source
+	When selecting x, y vals from within a source, delete entry from combo box if invalid.
+	
+	
+	
