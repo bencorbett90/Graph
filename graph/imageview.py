@@ -9,3 +9,6 @@ class ImageView(pqg.ImageView):
 
     def getPlotItem(self):
         return self.plotItem
+
+    def getView(self):
+    	return self.plotItem.getViewBox()

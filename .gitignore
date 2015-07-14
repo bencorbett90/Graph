@@ -1,3 +1,9 @@
 guiExample/test/test_ui.pyc
 *.pyc
 *.exe
+*.bak
+*.bak1
+*.ui
+*.ui
+*.ui
+graph/tracetab.ui

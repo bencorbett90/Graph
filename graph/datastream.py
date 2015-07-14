@@ -39,7 +39,7 @@ class DataStream():
         if source == 'SLICE':
             return self.slices[tag].getSlice()
 
-    def getDataFromName(self, name, sliceStr=None):
+    def getDataFromName(self, name, sliceStr="..., :"):
         if name in self.argNames:
             return self.dataFile.loadArg(self.argNames.index(name), sliceStr)
         elif name in self.valNames:
@@ -115,7 +115,7 @@ class DataStream():
         dimension."""
         return self.dataFile.slice(sliceStr)
 
-    def addToTraceTab(self, tab):
+    def addToTab(self, tab):
         """Add SELF to QTreeWidget TAB.TREE_DATA"""
         tree = tab.tree_data
         nameDict = tab.dataStreams

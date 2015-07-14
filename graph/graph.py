@@ -5,6 +5,7 @@ import numpy as np
 from datastream import DataStream, SliceTreeItem
 from graph_ui import Ui_MainWindow
 from tracetab import TraceTab
+from imagetab import ImageTab
 from graphexception import GraphException
 from traceitem import TraceItem
 from imageitem import ImageItem
@@ -28,6 +29,7 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.tabWidget.tabCloseRequested.connect(self.closeTab)
 
         self.addTraceTab()
+        self.addImageTab()
 
     def closeTab(self, index):
         tab = self.tabWidget.widget(index)
@@ -47,10 +49,9 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
             self.addImageTab()
 
     def addTraceTab(self):
-        # layout = QtGui.QBoxLayout(QtGui.QBoxLayout.LeftToRight, parent)
         tab = TraceTab(self)
         for ds in self.dataStreams.itervalues():
-            ds.addToTraceTab(tab)
+            ds.addToTab(tab)
             tab.addDataSource(ds)
 
         tab.setName(uniqueName("Trace Tab {}", 0, self.traceTabs.keys()))
@@ -58,7 +59,14 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.traceTabs[tab.name] = tab
 
     def addImageTab(self):
-        print('adding image tab.')
+        tab = ImageTab(self)
+        for ds in self.dataStreams.itervalues():
+            ds.addToTab(tab)
+            tab.addDataSource(ds)
+
+        tab.setName(uniqueName("Image Tab {}", 0, self.imageTabs.keys()))
+        self.tabWidget.addTab(tab, tab.name)
+        self.imageTabs[tab.name] = tab
 
     def addImage(self, image):
         """Add a new image to the list of currently selectable images."""
@@ -80,11 +88,12 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
 
     def addDataSource(self, ds):
         for tab in self.traceTabs.itervalues():
-            ds.addToTraceTab(tab)
+            ds.addToTab(tab)
             tab.addDataSource(ds)
 
-        # for tab in self.imageTabs.itervalues():
-        #     ds.addToTab(tab)
+        for tab in self.imageTabs.itervalues():
+            ds.addToTab(tab)
+            tab.addDataSource(ds)
 
     def removeSources(self, sourcePaths):
         """for for each path in SOURCEPATHS remove path from the combo boxes."""
@@ -123,11 +132,7 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         """Handles a click in column COLUMN of item ITEM in SELF.TREE_DATA."""
         return
 
-    def newImage(self):
-        image = ImageItem()
-        image.setName(uniqueName("Image {}", 0, self.images))
-        self.images[image.name] = image
-        image.addToTree(self)
+    
 
     #########################################
     #### Methods Dealing with Plot Table ####

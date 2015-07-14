@@ -37,6 +37,10 @@ class TraceItem(PlotDataItem):
         TraceItem.count += 1
         self.curve.setClickable(30)
 
+    def destroy(self):
+        self.traceTab = None
+        self.x = None
+        self.y = None
 
     def name(self):
         return self.NAME
@@ -267,7 +271,6 @@ class TraceItem(PlotDataItem):
         """Add my TraceItem to traceTab.TREE_TRACE."""
 
         tree = traceTab.tree_trace
-        updateData = traceTab.setSCData
         dataStreamNames = traceTab.dataStreams.keys()
 
         parentTWI = QtGui.QTreeWidgetItem()
