@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'graph/imagetab.ui'
 #
-# Created: Mon Jul 13 18:14:18 2015
+# Created: Tue Jul 14 11:50:21 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_Form(object):
     def setupUi(self, Form):
         Form.setObjectName(_fromUtf8("Form"))
-        Form.resize(1222, 549)
+        Form.resize(1153, 549)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -226,6 +226,10 @@ class Ui_Form(object):
         self.horizontalLayout_4.addWidget(self.label_9)
         self.verticalLayout_5.addLayout(self.horizontalLayout_4)
         self.horizontalLayout_2.addLayout(self.verticalLayout_5)
+        self.checkBox_lockRatio = QtGui.QCheckBox(Form)
+        self.checkBox_lockRatio.setMaximumSize(QtCore.QSize(80, 15))
+        self.checkBox_lockRatio.setObjectName(_fromUtf8("checkBox_lockRatio"))
+        self.horizontalLayout_2.addWidget(self.checkBox_lockRatio)
         self.verticalLayout_3 = QtGui.QVBoxLayout()
         self.verticalLayout_3.setSpacing(0)
         self.verticalLayout_3.setObjectName(_fromUtf8("verticalLayout_3"))
@@ -302,6 +306,7 @@ class Ui_Form(object):
         self.label_7.setText(_translate("Form", "t", None))
         self.label_8.setText(_translate("Form", "Lvl Min", None))
         self.label_9.setText(_translate("Form", "Lvl Max", None))
+        self.checkBox_lockRatio.setText(_translate("Form", "Lock Ratio", None))
         self.btn_autoRange.setText(_translate("Form", "Auto Range", None))
         self.btn_autoLvl.setText(_translate("Form", "Auto Levels", None))
         self.label_6.setText(_translate("Form", "Background Color", None))

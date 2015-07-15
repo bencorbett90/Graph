@@ -27,6 +27,10 @@ class ImageTab(QtGui.QWidget, Ui_Form):
         self.yRange = [0,1]
         self.enableSetRange = True
         self.enableUpdateBoxes = True
+        self.enableUpdateLevels = True
+        self.enableSetLevels = True
+        self.enableUpdateTime = True
+        self.enableSetTime = True
 
         self.plot.getView().setAspectLocked(False)
         self.plot.getView().invertY(False)
@@ -40,12 +44,21 @@ class ImageTab(QtGui.QWidget, Ui_Form):
         self.spin_x_max.setOpts(step=.1, dec=True, minStep=.1)
         self.spin_y_min.setOpts(step=.1, dec=True, minStep=.1)
         self.spin_y_max.setOpts(step=.1, dec=True, minStep=.1)
+        self.spin_t.setOpts(step=1)
+        self.spin_lvl_min.setOpts(step=.1, dec=True, minStep=.1)
+        self.spin_lvl_max.setOpts(step=.1, dec=True, minStep=.1)
         self.plot.getView().sigRangeChanged.connect(self.updateRangeBoxes)
         self.spin_x_min.sigValueChanged.connect(self.setRange)
         self.spin_x_max.sigValueChanged.connect(self.setRange)
         self.spin_y_min.sigValueChanged.connect(self.setRange)
         self.spin_y_max.sigValueChanged.connect(self.setRange)
         self.updateRangeBoxes()
+        self.spin_t.sigValueChanged.connect(self.setTime)
+        self.plot.playTimer.timeout.connect(self.updateTime)
+        self.plot.sigTimeChanged.connect(self.updateTime)
+        self.spin_lvl_min.sigValueChanging.connect(self.setLevels)
+        self.spin_lvl_max.sigValueChanging.connect(self.setLevels)
+        self.plot.getHistogramWidget().sigLevelsChanged.connect(self.updateLevels)
 
         # Setting background color
         self.plot.getView().setBackgroundColor(self.backgroundColor)
@@ -53,6 +66,7 @@ class ImageTab(QtGui.QWidget, Ui_Form):
         # Connecting the check boxes.
         self.checkBox_showGrid.setChecked(True)
         self.checkBox_showGrid.clicked.connect(self.showGrid)
+        self.checkBox_lockRatio.clicked.connect(self.lockRatio)
 
         # Connecting the color buttons
         self.btnColor_background.sigColorChanging.connect(self.setBackgroundColor)
@@ -65,12 +79,51 @@ class ImageTab(QtGui.QWidget, Ui_Form):
         # Connecting the Create New Trace button
         self.btn_newImage.clicked.connect(self.newImage)
 
+        self.btn_autoLvl.clicked.connect(self.autoLvl)
+        self.btn_autoRange.clicked.connect(self.autoRange)
+
     def addDataSource(self, ds):
         for image in self.images.itervalues():
             image.sourceSelector.addItem(ds.name)
 
+    def autoLvl(self):
+        self.plot.autoLevels()
+
+    def autoRange(self):
+        self.autoRange()
+
     def setName(self, newName):
         self.name = str(newName)
+
+    def setTime(self):
+        if self.enableSetTime:
+            self.enableUpdateTime = False
+            timeTo = self.spin_t.value()
+            self.plot.timeLine.setValue(timeTo)
+            self.enableUpdateTime = True
+
+    def updateTime(self, index=None, time=None):
+        if self.enableUpdateTime:
+            curTime = self.plot.timeLine.value()
+            self.enableSetTime = False
+            self.spin_t.setValue(curTime)
+            self.enableSetTime = True
+
+    def setLevels(self):
+        if self.enableSetLevels:
+            self.enableUpdateLevels = False
+            minLvl = self.spin_lvl_min.value()
+            maxLvl = self.spin_lvl_max.value()
+            self.plot.setLevels(minLvl, maxLvl)
+            self.enableUpdateLevels = True
+
+    def updateLevels(self):
+        if self.enableUpdateLevels:
+            self.enableSetLevels = False
+            minLvl, maxLvl = self.plot.getHistogramWidget().getLevels()
+            self.spin_lvl_min.setValue(minLvl)
+            self.spin_lvl_max.setValue(maxLvl)
+            self.enableSetLevels = True
 
     def updateRangeBoxes(self):
         """ Sets the values of the spin boxes to the current viewable range."""
@@ -92,7 +145,7 @@ class ImageTab(QtGui.QWidget, Ui_Form):
             y_max = self.spin_y_max.value()
             self.plot.getView().setRange(xRange=(x_min, x_max), yRange=(y_min, y_max), padding=False)
             self.enableUpdateBoxes = True
-    
+
     def showGrid(self):
         """ Toggles the grid on or off. """
         if self.checkBox_showGrid.isChecked():
@@ -101,6 +154,14 @@ class ImageTab(QtGui.QWidget, Ui_Form):
         else:
             self.plot.getPlotItem().getAxis('left').setGrid(False)
             self.plot.getPlotItem().getAxis('bottom').setGrid(False)
+
+    def lockRatio(self):
+        """ Lock the aspect ratio of my view box to be that of my Image."""
+        if self.checkBox_lockRatio.isChecked():
+            self.plot.getView().setAspectLocked(True, 1.0)
+        else:
+            self.plot.getView().setAspectLocked(False)
+
 
     def setBackgroundColor(self):
         """ Sets the background color to the value of the value of btnColor_background."""
