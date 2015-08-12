@@ -7,3 +7,4 @@ guiExample/test/test_ui.pyc
 *.ui
 *.ui
 graph/tracetab.ui
+*.hdf5

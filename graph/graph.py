@@ -42,9 +42,6 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.addTraceTab()
         self.addImageTab()
 
-        self.first = True
-        self.loadFile()
-
         self.tabWidget.setCurrentIndex(0)
 
     def copy_plot(self):
@@ -132,13 +129,9 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.tabWidget.setCurrentIndex(self.tabWidget.count() - 1)
 
     def loadFile(self):
-        if self.first == True:
-            self.first = False
-            filePaths = ['graph/data/vidTest2.hdf5']
-        else:
-            filePaths = getFilePath()
-            if filePaths is None:
-                return
+        filePaths = getFilePath()
+        if filePaths is None:
+            return
 
         filePaths = [str(path) for path in filePaths]
         nonHDF5 = []
