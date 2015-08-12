@@ -1,7 +1,8 @@
 import pyqtgraph as pqg
 from PyQt4 import QtGui, QtCore
 from pyqtgraph import PlotDataItem
-from graphexception import GraphException
+from imageitem import ImageItem
+from utils import *
 
 
 class TraceItem(PlotDataItem):
@@ -20,41 +21,219 @@ class TraceItem(PlotDataItem):
         self.outlineColor = pqg.mkColor(0, 0, 0, 255)
         self.outlineSize = 0
         self.fillColor = pqg.mkColor(0, 0, 0, 255)
+        self.symbol = 'o'
         self.fillLevel = None
         self.pxMode = True
+        
         self.x = None
         self.y = None
-        
-        self.symbol = 'o'
+        self.spin_sliceMin = None
+        self.spin_sliceMax = None
+        self.spin_sliceParams = []
+        self.sliceTable = None
+        self.updateSlice = True
+
+        self.ds = None
+        self.valName = None
+        self.argName = None
+        self.sliceParams = {}
+
+        self.update = False
+        self.showOnPlot = True
         self.showCurve = True
         self.showPoints = True
         self.showFill = False
-        self.sourceSelector = None
-        self.xDataSelector = None
-        self.yDataSelector = None
-        self.ds = None
         self.id = TraceItem.count
         TraceItem.count += 1
         self.curve.setClickable(30)
 
-    def destroy(self):
-        self.traceTab = None
-        self.x = None
-        self.y = None
+    def copy_data(self, other):
+        """Set myself to a copy of OTHER which is also a TraceItem."""
+        if isinstance(other, TraceItem):
+            self.showCurve = other.showCurve
+            self.showPoints = other.showPoints
+            self.showFill = other.showFill
+            self.showOnPlot = other.showOnPlot
+            self.update = other.update
+    
+            self.ds = other.ds
+            self.valName = other.valName
+            self.argName = other.argName
+            self.sliceParams = other.sliceParams
+    
+            self.setPointPen(other.pointColor, other.pointSize)
+            self.setPointOutline(other.outlineColor, other.outlineSize)
+            self.symbol = other.symbol
+            self.setSymbolScatter(self.symbol)
+            self.pxMode = other.pxMode
+    
+            self.setFill(other.fillColor, other.fillLevel)
+            self.setCurvePen(other.curveColor, other.curveSize)
+            self.setCurveShadow(other.shadowColor, other.shadowSize)
+
+        if isinstance(other, ImageItem):
+            self.ds = other.ds
+            self.valName = other.valName
+            self.argName = other.axisNames['x']
+            
+            for k, v in other.sliceParams.iteritems():
+                self.sliceParams[k] = v
+
+            for arg in other.axisNames.itervalues():
+                if arg == self.argName or arg == 'None':
+                    continue
+                else:
+                    self.sliceParams[arg] = 0
+
+        self.get_data()
+        self.checkBoxShow.setChecked(self.showOnPlot)
+        self.toggleShow(self.checkBoxShow)
+        self.checkBoxUpdate.setChecked(self.update)
+        self.toggleUpdate()
+
+    def delete(self):
+        self.removeFrom(self.traceTab.plot)
+        self.traceTab.delete_trace(self)
+        del self.x
+        del self.y
+        del self.traceTab
+
+    def set_data_source(self, ds, valName, argName):
+        """Set the data that I display to value VALNAME vs argumnent ARGNAME
+        of dataSet DSNAME."""
+        self.ds = ds
+        self.valName = valName
+        self.argName = argName
+        self.sliceParams.clear()
+        for axis in ds.get_args_to_val(valName):
+            self.sliceParams[axis] = 0
+
+        self.sliceParams[argName] = (0, ds.get_arg_shape(argName))
+        self.update_slice_table(self.traceTab.table_slice)
+        self.get_data()
+        self.toggleShow(self.checkBoxShow)
+
+    def get_data(self):
+        """Get the actual data from SELF.VALNAME and SELF.ARGNAME of SELF.DS
+        specified by SELF.SLICEPARAMS."""
+        argSlice = slice(*self.sliceParams[self.argName])
+        x = self.ds.load_arg(self.argName, argSlice)
+
+        s = self.ds.gen_slice(self.valName, self.sliceParams)
+        y = self.ds.load_val(self.valName, s)
+
+        self.setPoints(x, y)
+
+    def update_slice_table(self, sliceTable):
+        if self.argName is None:
+            sliceTable.clear()
+            sliceTable.setHorizontalHeaderLabels(['axis', 'indices', 'values'])
+            return
+
+        self.sliceTable = sliceTable
+        sliceTable.clear()
+        sliceTable.setHorizontalHeaderLabels(['axis', 'indices', 'values'])
+        sliceTable.setRowCount(len(self.sliceParams))
+
+        argItem = QtGui.QTableWidgetItem(self.argName)
+        sliceTable.setItem(0, 0, argItem)
+        minBounds = (0, self.ds.get_arg_shape(self.argName) - 2)
+        maxBounds = (1, self.ds.get_arg_shape(self.argName) - 1)
+        self.spin_sliceMin = pqg.SpinBox(bounds=minBounds, step=1.0, int=True)
+        self.spin_sliceMin.setValue(self.sliceParams[self.argName][0])
+        self.spin_sliceMax = pqg.SpinBox(bounds=maxBounds, step=1.0, int=True)
+        self.spin_sliceMax.setValue(self.sliceParams[self.argName][1])
+
+        self.spin_sliceMin.sigValueChanging.connect(self.update_slice)
+        self.spin_sliceMax.sigValueChanging.connect(self.update_slice)
+        spinLayout = QtGui.QHBoxLayout()
+        spinLayout.addWidget(self.spin_sliceMin)
+        spinLayout.addWidget(self.spin_sliceMax)
+        cellWidget = QtGui.QWidget()
+        cellWidget.setLayout(spinLayout)
+        sliceTable.setCellWidget(0, 1, cellWidget)
+        sliceTable.setCellWidget(0, 2, QtGui.QLabel())
+
+        self.spin_sliceParams = []
+        row = 1
+        for argName, s in self.sliceParams.iteritems():
+            if argName == self.argName:
+                continue
+            argItem = QtGui.QTableWidgetItem(argName)
+            sliceTable.setItem(row, 0, argItem)
+
+            bounds = (0, self.ds.get_arg_shape(argName) - 1)
+            spin = pqg.SpinBox(bounds=bounds, step=1.0, int=True)
+            spin.setValue(self.sliceParams[argName])
+            spin.sigValueChanging.connect(self.update_slice)
+
+            self.spin_sliceParams += [spin]
+            sliceTable.setCellWidget(row, 1, spin)
+            sliceTable.setCellWidget(row, 2, QtGui.QLabel())
+            row += 1
+
+        self.update_slice_labels()
+        sliceTable.resizeColumnsToContents()
+        sliceTable.resizeRowsToContents()
+        sliceTable.horizontalHeader().setStretchLastSection(True)
+
+    def update_slice(self):
+        if self.updateSlice == False:
+            return
+
+        self.updateSlice = False
+        sliceMin = self.spin_sliceMin.value()
+        sliceMax = self.spin_sliceMax.value()
+
+        self.spin_sliceMin.setMaximum(sliceMax - 1)
+        self.spin_sliceMax.setMinimum(sliceMin + 1)
+        self.spin_sliceMin.setValue()
+        self.spin_sliceMax.setValue()
+
+        sliceMin = self.spin_sliceMin.value()
+        sliceMax = self.spin_sliceMax.value()
+
+        self.sliceParams[self.argName] = (sliceMin, sliceMax + 1)
+
+        for row in range(1, self.sliceTable.rowCount()):
+            argName = str(self.sliceTable.item(row, 0).text())
+            spin = self.sliceTable.cellWidget(row, 1)
+            self.sliceParams[argName] = spin.value()
+
+        self.update_slice_labels()
+        self.get_data()
+        self.updateSlice = True
+
+    def update_slice_labels(self):
+        for row in range(self.sliceTable.rowCount()):
+            argName = str(self.sliceTable.item(row, 0).text())
+
+            s = self.sliceParams[argName]
+            if isinstance(s, tuple):
+                valString = '[' + str(self.ds.load_arg(argName, s[0])) + ',  '
+                valString += str(self.ds.load_arg(argName, s[1] - 1)) + ']'
+            else:
+                valString = str(self.ds.load_arg(argName, s))
+
+            label = self.sliceTable.cellWidget(row, 2)
+            label.setText(valString)
 
     def name(self):
         return self.NAME
 
     def toggleUpdate(self):
         """Turn on/off automatic updating when the trace is refreshed."""
-        return
+        if self.checkBoxUpdate.isChecked():
+            self.update = True
+        else:
+            self.update = False
 
     def toggleShowPoints(self, checkBox):
         if checkBox.isChecked():
             self.showPoints = True
             self.setSizeScatter(self.pointSize)
             self.setBrushScatter(self.pointColor)
-            self.setPointOutline(self.outlineColor, self.outlineSize * 100)
+            self.setPointOutline(self.outlineColor, self.outlineSize)
         else:
             self.showPoints = False
             self.setSizeScatter(0)
@@ -63,10 +242,10 @@ class TraceItem(PlotDataItem):
         if checkBox.isChecked():
             self.showCurve = True
             self.setPenCurve(color=self.curveColor, width=self.curveSize)
-            self.setShadowPen(color=self.shadowColor, width=self.shadowSize*100)
+            self.setShadowPen(color=self.shadowColor, width=self.shadowSize)
         else:
             self.showCurve = False
-            pen = pqg.mkPen((0, 0, 0, 0), width = 0)
+            pen = pqg.mkPen((0, 0, 0, 0), width=0)
             self.setPenCurve(pen)
             self.setShadowPen(pen)
 
@@ -102,41 +281,38 @@ class TraceItem(PlotDataItem):
 
     def setPointPen(self, color, size):
         """Set pen drawing my points, size ranges from 0-100."""
-        size = size / 5.0
-
         if color != self.pointColor:
             self.pointColor = color
             if self.showPoints:
                 self.setBrushScatter(color)
-        if size != self.pointSize:     
+        if size != self.pointSize:
             self.pointSize = size
-            self.setPointOutline(self.outlineColor, self.outlineSize * 100)
+            self.setPointOutline(self.outlineColor, self.outlineSize)
             if self.showPoints:
                 self.setSizeScatter(size)
 
     def setPointOutline(self, color, size):
         """Set the pen from drawing the point outlines. Size ranges from 
-        0-100 and specifies percent of the point pen size."""
+        0-1 and specifies percent of the point pen size."""
         self.outlineColor = color
-        self.outlineSize = size / 100.0
+        self.outlineSize = size
         size = self.pointSize * self.outlineSize
         self.setPenScatter(color=color, width=size)
 
     def setCurvePen(self, color, size):
-        """Set pen drawing my curve, size ranges from 0-100."""
-        size = size / 5
+        """Set pen drawing my curve."""
         if color != self.curveColor or size != self.curveSize:
             self.curveColor = color
             self.curveSize = size
-            self.setPenShadow(self.shadowColor, self.shadowSize * 100)
+            self.setCurveShadow(self.shadowColor, self.shadowSize)
             if self.showCurve == True:
                 self.setPenCurve(color, width=size)
-                
-    def setPenShadow(self, color, size):
-        """Set pen drawing my curve shadow, size ranges from 0-100
+
+    def setCurveShadow(self, color, size):
+        """Set pen drawing my curve shadow, size ranges from 0-1
         and specifies percent of curve pen size."""
         self.shadowColor = color
-        self.shadowSize = size / 100.0
+        self.shadowSize = size
         size = self.curveSize * (1 + self.shadowSize)
         if self.showCurve == True:
             self.setShadowPen(color, width=size)
@@ -145,26 +321,31 @@ class TraceItem(PlotDataItem):
         """Set the color and level to fill my curve."""
         if color != self.fillColor:
             self.fillColor = color
-            if self.showFill == True:
+            if self.showFill is True:
                 self.setFillBrush(color)
         if level != self.fillLevel:
             self.fillLevel = level
-            if self.showFill == True:
+            if self.showFill is True:
                 self.setFillLvl(level)
 
     def setPointShape(self, comboBox):
         text = str(comboBox.currentText()).strip()
-        pointDict = {'Circle' : 'o', 'Square': 's', 'Triangle': 't', 'Diamond': 'd', 'Plus': '+'}
+        pointDict = {'Circle': 'o', 'Square': 's',
+                     'Triangle': 't', 'Diamond': 'd', 'Plus': '+'}
         if text not in pointDict.keys():
-            raise GraphException("{} is not a recognized point type".format(text))
+            raise GraphException(
+                "{} is not a recognized point type".format(text))
         else:
-            self.setSymbolScatter(pointDict[text])            
+            self.symbol = pointDict[text]
+            self.setSymbolScatter(self.symbol)
 
     def toggleShow(self, checkBox):
         if checkBox.isChecked():
+            self.showOnPlot = True
             self.addTo(self.traceTab.plot)
-            self.onClick(lambda: self.traceTab.changeToTrace(self))
+            self.onClick(lambda: self.traceTab.change_to_trace(self))
         else:
+            self.showOnPlot = False
             self.removeFrom(self.traceTab.plot)
 
     def togglePxMode(self, checkBox):
@@ -175,25 +356,6 @@ class TraceItem(PlotDataItem):
 
         self.setPoints(self.x, self.y)
 
-    def setTraceName(self, name, lineEdit):
-        oldName = self.NAME
-        if name in self.traceTab.traces.keys():
-            lineEdit.setText(oldName)
-            raise GraphException("Duplicate names not allowed.")
-        else:
-            self.traceTab.traces.pop(oldName)
-            self.setName(name)
-            self.traceTab.traces[self.NAME] = self
-
-    def setTraceData(self, index):
-        xString = str(self.xDataSelector.currentText())
-        xData = self.getDataFromName(xString)
-
-        yString = str(self.yDataSelector.currentText())
-        yData = self.getDataFromName(yString)
-
-        self.setPoints(xData, yData)
-
     def getDataFromName(self, Name):
         Name = str(Name)
         name = Name.split('[')
@@ -203,7 +365,8 @@ class TraceItem(PlotDataItem):
             raise GraphException("{} is not a valid slice".format(Name))
         elif dataName not in self.ds.argNames:
             if dataName not in self.ds.valNames:
-                message = "{} does not contain {}".format(self.ds.name, dataName)
+                message = "{} does not contain {}".format(
+                    self.ds.name, dataName)
                 raise GraphException(message)
         if len(name) == 1:
             return self.ds.getDataFromName(dataName)
@@ -216,7 +379,12 @@ class TraceItem(PlotDataItem):
 
     def setName(self, newName):
         """Set SELF's name to NEWNAME."""
-        self.NAME = str(newName)
+        newName = str(newName)
+        if newName == self.name():
+            return
+        validName = self.traceTab.rename(self, newName)
+        self.NAME = validName
+        self.item_name.setText(validName)
 
     def addTo(self, plotItem):
         """ADD SELF to PLOTITEM."""
@@ -230,9 +398,15 @@ class TraceItem(PlotDataItem):
         """dimList is a list of dimension."""
         self.x = x
         self.y = y
+        pointSize = self.pointSize
         LinePen = pqg.mkPen(self.curveColor, width=self.curveSize)
+        if not self.showPoints:
+            pointSize = 0
+        if not self.showCurve:
+            LinePen = pqg.mkPen((0, 0, 0, 0), width=0)
+
         self.setData(x=x, y=y, symbol=self.symbol, symbolBrush=self.pointColor,
-                     symbolSize=self.pointSize, pen=LinePen, pxMode=self.pxMode)
+                     symbolSize=pointSize, pen=LinePen, pxMode=self.pxMode)
 
     def onClick(self, f):
         """Call F whenever SELF is clicked."""
@@ -266,185 +440,29 @@ class TraceItem(PlotDataItem):
         """Set the level to fill in below my curve."""
         return self.setFillLevel(level)
 
+    def add_to_trace_table(self, traceTable):
+        table = traceTable
+        row = table.rowCount()
+        table.setRowCount(row + 1)
+        self.item_name = QtGui.QTableWidgetItem(self.NAME)
+        self.item_name.trace = self
+        table.setItem(row, 0, self.item_name)
 
-    def addToTree(self, traceTab):
-        """Add my TraceItem to traceTab.TREE_TRACE."""
+        self.checkBoxShow = QtGui.QCheckBox()
+        self.checkBoxShow.setChecked(True)
+        show = lambda: self.toggleShow(self.checkBoxShow)
+        self.checkBoxShow.stateChanged.connect(show)
+        table.setCellWidget(row, 1, self.checkBoxShow)
 
-        tree = traceTab.tree_trace
-        dataStreamNames = traceTab.dataStreams.keys()
+        self.checkBoxUpdate = QtGui.QCheckBox()
+        self.checkBoxUpdate.setChecked(False)
+        self.checkBoxUpdate.stateChanged.connect(self.toggleUpdate)
+        table.setCellWidget(row, 2, self.checkBoxUpdate)
 
-        parentTWI = QtGui.QTreeWidgetItem()
-        tree.addTopLevelItem(parentTWI)
+        btn_delete = QtGui.QPushButton('Delete')
+        btn_delete.clicked.connect(self.delete)
+        table.setCellWidget(row, 4, btn_delete)
 
-        # Adding the lineedit for the trace name
-        nameBox = QtGui.QLineEdit(self.NAME)
-        f = lambda name: self.setTraceName(name, nameBox)
-        nameBox.textEdited.connect(f)
-        tree.setItemWidget(parentTWI, 0, nameBox)
-
-        # Adding the checkbox for showing the trace
-        checkBoxShow = QtGui.QCheckBox("Show")
-        show = lambda: self.toggleShow(checkBoxShow)
-        checkBoxShow.stateChanged.connect(show)
-        checkBoxShow.setChecked(True)
-        tree.setItemWidget(parentTWI, 1, checkBoxShow)
-
-        # Adding the data parent item and update check box
-        dataParent = QtGui.QTreeWidgetItem(['Data'])
-        parentTWI.addChild(dataParent)
-        checkBoxUpdate = QtGui.QCheckBox("Update")
-        checkBoxUpdate.stateChanged.connect(self.toggleUpdate)
-        checkBoxUpdate.setChecked(False)
-        tree.setItemWidget(dataParent, 1, checkBoxUpdate)
-
-        # Adding the sourceSelector
-        childSource = QtGui.QTreeWidgetItem(['Source'])
-        dataParent.addChild(childSource)
-        comboSource = QtGui.QComboBox()
-        comboSource.addItems(dataStreamNames)
-        comboSource.setEditable(True)
-        selectSource = lambda index: self.selectDataSource(comboSource, index)
-        comboSource.activated.connect(selectSource)
-        tree.setItemWidget(childSource, 1, comboSource)
-        self.sourceSelector = comboSource
-
-        # Adding xData selector
-        childX = QtGui.QTreeWidgetItem(['x'])
-        dataParent.addChild(childX)
-        comboX = QtGui.QComboBox()
-        comboX.setEditable(True)
-        comboX.activated.connect(self.setTraceData)
-        tree.setItemWidget(childX, 1, comboX)
-        self.xDataSelector = comboX
-
-        # Adding yData selector
-        childY = QtGui.QTreeWidgetItem(['y'])
-        dataParent.addChild(childY)
-        comboY = QtGui.QComboBox()
-        comboY.setEditable(True)
-        comboY.activated.connect(self.setTraceData)
-        tree.setItemWidget(childY, 1, comboY)
-        self.yDataSelector = comboY
-
-        # Adding the point parent item and show check box
-        pointParent = QtGui.QTreeWidgetItem(['Points'])
-        parentTWI.addChild(pointParent)
-        checkBoxShowPoints = QtGui.QCheckBox("Show")
-        showPoints = lambda : self.toggleShowPoints(checkBoxShowPoints)
-        checkBoxShowPoints.stateChanged.connect(showPoints)
-        checkBoxShowPoints.setChecked(True)
-        tree.setItemWidget(pointParent, 1, checkBoxShowPoints)
-
-        # Adding the pen selector
-        childPen = QtGui.QTreeWidgetItem(['Pen'])
-        pointParent.addChild(childPen)
-        colorBtnPen = pqg.ColorButton(color=self.pointColor)
-        sliderPen = QtGui.QSlider(QtCore.Qt.Horizontal)
-        sliderPen.setRange(0, 100)
-        sliderPen.setSingleStep(1)
-        sliderPen.setPageStep(10)
-        tree.setItemWidget(childPen, 1, colorBtnPen)
-        tree.setItemWidget(childPen, 2, sliderPen)
-
-        colorFunc1 = colorBtnPen.color
-        sizeFunc1 = sliderPen.value
-        setPointPen = lambda : self.setPointPen(colorFunc1(), sizeFunc1())
-        colorBtnPen.sigColorChanging.connect(setPointPen)
-        sliderPen.valueChanged.connect(setPointPen)
-
-        # Adding the outline pen selector
-        childOutline = QtGui.QTreeWidgetItem(['Outline Pen'])
-        pointParent.addChild(childOutline)
-        colorBtnOutline = pqg.ColorButton(color=self.outlineColor)
-        sliderOutline = QtGui.QSlider(QtCore.Qt.Horizontal)
-        sliderOutline.setRange(0, 100)
-        sliderOutline.setSingleStep(1)
-        sliderOutline.setPageStep(10)
-        tree.setItemWidget(childOutline, 1, colorBtnOutline)
-        tree.setItemWidget(childOutline, 2, sliderOutline)
-
-        colorFunc2 = colorBtnOutline.color
-        sizeFunc2 = sliderOutline.value
-        setPointOutline = lambda : self.setPointOutline(colorFunc2(), sizeFunc2())
-        colorBtnOutline.sigColorChanging.connect(setPointOutline)
-        sliderOutline.valueChanged.connect(setPointOutline)
-
-        # Adding the point shape selector
-        childPointShape = QtGui.QTreeWidgetItem(['Shape'])
-        pointParent.addChild(childPointShape)
-        comboPoints = QtGui.QComboBox()
-        comboPoints.addItems(["Circle", "Square", "Triangle", "Diamond", 'Plus'])
-        tree.setItemWidget(childPointShape, 1, comboPoints)
-        setPointShape = lambda index: self.setPointShape(comboPoints)
-        comboPoints.activated.connect(setPointShape)
-        checkBoxPxMode = QtGui.QCheckBox("pxMode")
-        checkBoxPxMode.setChecked(True)
-        togglePxMode = lambda : self.togglePxMode(checkBoxPxMode)
-        checkBoxPxMode.stateChanged.connect(togglePxMode)
-        tree.setItemWidget(childPointShape, 2, checkBoxPxMode)
-
-
-        # Adding the curve parent item and show check box
-        curveParent = QtGui.QTreeWidgetItem(['Curve'])
-        parentTWI.addChild(curveParent)
-        checkBoxShowCurve = QtGui.QCheckBox("Show")
-        showCurve = lambda : self.toggleShowCurve(checkBoxShowCurve)
-        checkBoxShowCurve.stateChanged.connect(showCurve)
-        checkBoxShowCurve.setChecked(True)
-        tree.setItemWidget(curveParent, 1, checkBoxShowCurve)
-        checkBoxShowFill = QtGui.QCheckBox("Show Fill")
-        checkBoxShowFill.setChecked(False)
-        showFill = lambda : self.toggleShowFill(checkBoxShowFill)
-        checkBoxShowFill.stateChanged.connect(showFill)
-        tree.setItemWidget(curveParent, 2, checkBoxShowFill)
-
-        # Adding the curve pen selector
-        childCurvePen = QtGui.QTreeWidgetItem(['Pen'])
-        curveParent.addChild(childCurvePen)
-        colorBtnCurve = pqg.ColorButton(color=self.curveColor)
-        sliderCurve = QtGui.QSlider(QtCore.Qt.Horizontal)
-        sliderCurve.setRange(0, 100)
-        sliderCurve.setSingleStep(1)
-        sliderCurve.setPageStep(10)
-        tree.setItemWidget(childCurvePen, 1, colorBtnCurve)
-        tree.setItemWidget(childCurvePen, 2, sliderCurve)
-
-        colorFunc3 = colorBtnCurve.color
-        sizeFunc3 = sliderCurve.value
-        setCurvePen = lambda : self.setCurvePen(colorFunc3(), sizeFunc3())
-        colorBtnCurve.sigColorChanging.connect(setCurvePen)
-        sliderCurve.valueChanged.connect(setCurvePen)
-
-        # Adding the curve shadow pen selector
-        childShadowPen = QtGui.QTreeWidgetItem(['Shadow Pen'])
-        curveParent.addChild(childShadowPen)
-        colorBtnShadow = pqg.ColorButton(color=self.shadowColor)
-        sliderShadow = QtGui.QSlider(QtCore.Qt.Horizontal)
-        sliderShadow.setRange(0, 100)
-        sliderShadow.setSingleStep(1)
-        sliderShadow.setPageStep(10)
-        tree.setItemWidget(childShadowPen, 1, colorBtnShadow)
-        tree.setItemWidget(childShadowPen, 2, sliderShadow)
-
-        colorFunc4 = colorBtnShadow.color
-        sizeFunc4 = sliderShadow.value
-        setShadowPen = lambda : self.setPenShadow(colorFunc4(), sizeFunc4())
-        colorBtnShadow.sigColorChanging.connect(setShadowPen)
-        sliderShadow.valueChanged.connect(setShadowPen)
-
-        # Adding the fill selector
-        childFill = QtGui.QTreeWidgetItem(['Fill'])
-        curveParent.addChild(childFill)
-        colorBtnFill = pqg.ColorButton(color=self.fillColor)
-        spinFill = pqg.SpinBox()
-        spinFill.setOpts(step=1)
-        tree.setItemWidget(childFill, 1, colorBtnFill)
-        tree.setItemWidget(childFill, 2, spinFill)
-
-        colorFunc5 = colorBtnFill.color
-        sizeFunc5 = spinFill.value
-        setFill = lambda : self.setFill(colorFunc5(), sizeFunc5())
-        colorBtnFill.sigColorChanging.connect(setFill)
-        spinFill.sigValueChanging.connect(setFill)
-
-        self.spinFill = spinFill
+        # Add icon here if so desire.
+        table.resizeColumnsToContents()
+        table.horizontalHeader().setStretchLastSection(True)

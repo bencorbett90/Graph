@@ -1,119 +1,138 @@
 import numpy as np
 from PyQt4 import QtCore, QtGui
-from graphexception import GraphException
 import h5py
 from utils import *
 
 
 class DataStream():
 
-    def __init__(self, path):
-        self.dataFile = None
-        if path[-5:] == '.hdf5':
-            self.dataFile = HDF5File(path)
-        self.shape = None
-        self.numArgs = 0
-        self.numVals = 0
-        self.name = shorten_filename(path)
+    def __init__(self, path, dataPath):
+        """Initializes a HDF5 DataStream. PATH is the path to the
+        .hdf5 file, and DATAPATH is the path within the file to the
+        specific dataset.
+        """
+        self.filePath = path
+        self.dataPath = dataPath
 
-        # Lists of arg and val names
-        self.argNames = []
-        self.valNames = []
+        # Dictionary of the overall dataset attributes.
+        self.attrs = {}
 
-        # Dictionary from ints to SliceTreeItems
-        self.slices = {}
+        # Dictionary of arg/val names to a dict of arg/val attributes,
+        # the arg/val dataset path, and the dataset shape.
+        # if a val also has dimScales which is a list of args names.
+        self.args = {}
+        self.vals = {}
 
-        self.getInfo()
+        self.get_attrs()
 
-    def getData(self, source, tag):
-        """Source specifies one of ARG, VAL, or SLICE, and tag specifies
-        the number or string specifying the arg, val, or slice."""
-        if source == 'ARG':
-            return self.dataFile.loadArgs()[tag]
-        if source == 'VAL':
-            if self.numVals > 1:
-                return self.dataFile.slice('[..., {}]'.format(tag))
+        self.name = self.attrs['Name']
+
+    def get_attrs(self):
+        """Load all of the attributes of the dataset into SELF.ATTRS
+        and all of the arg/val attributes into SELF.ARGS/SELF.VALS
+        as well as the shape of the arg/val, the path to the arg/val
+        and for vals the associated dimension scales."""
+
+        f = h5py.File(self.filePath, 'r')
+        for name, value in f[self.dataPath].attrs.iteritems():
+            self.attrs[str(name)] = value
+
+        for dsetName, dset in f[self.dataPath].iteritems():
+            givenName = dset.attrs['Name']
+            if dsetName[0:11] == 'Independent':
+                if givenName not in self.args.iterkeys():
+                    dsetName = givenName
+                self.args[str(dsetName)] = {}
+                attrDict = self.args[dsetName]
+            elif dsetName[0:9] == 'Dependent':
+                if givenName not in self.vals.iterkeys():
+                    dsetName = givenName
+                self.vals[str(dsetName)] = {}
+                attrDict = self.vals[dsetName]
             else:
-                data = self.dataFile.slice('[..., : ]')
-                return data
-        if source == 'SLICE':
-            return self.slices[tag].getSlice()
+                continue
 
-    def getDataFromName(self, name, sliceStr="..., :"):
-        if name in self.argNames:
-            return self.dataFile.loadArg(self.argNames.index(name), sliceStr)
-        elif name in self.valNames:
-            return self.dataFile.loadVal(self.valNames.index(name), sliceStr)
+            # Adding the dataset attributes
+            for name, value in dset.attrs.iteritems():
+                attrDict[str(name)] = value
+
+            # Adding the datset path and shape.
+            attrDict['path'] = dset.name
+            attrDict['shape'] = dset.shape
+
+        # Taking care of dimension scales if the dataset
+        # is an independent variable. Only use the first dim scale.
+        for valDict in self.vals.itervalues():
+            dset = f[valDict['path']]
+            dimScales = []
+            for i in range(len(dset.dims)):
+                dimPath = dset.dims[i][0].name
+                dimScales += [self._get_arg_name_from_path(dimPath)]
+            valDict['dimScales'] = dimScales
+
+        f.close()
+
+    def get_vals(self, minDim):
+        """Return a list of val names of vals of dimension greater than
+        or equal to MINDIM."""
+        valNames = []
+        for valName, valDict in self.vals.iteritems():
+            if len(valDict['shape']) >= minDim:
+                valNames += [valName]
+
+        return valNames
+
+    def _get_arg_name_from_path(self, path):
+        """Given an argument path, return the name used as the 
+        given argumnet's key in SELF.ARGS"""
+        for k, v in self.args.iteritems():
+            if v['path'] == path:
+                return k
+
+    def load_arg(self, argName, s=None):
+        """Return the argument ARGNAME[s]"""
+        f = h5py.File(self.filePath, 'r')
+        path = self.args[argName]['path']
+        if s is None:
+            data = f[path][:]
         else:
-            raise GraphException("DataStream {} does not contain {}".format(self.name, name))
+            data = f[path][s]
+        f.close()
+        return data
 
-    def getSourceDim(self, source, tag):
-        """Source specifies one of ARG, VAL, or SLICE, and tag specifies
-        the number or string specifying the arg, val, or slice."""
-        if source == 'ARG':
-            return 1
-        if source == 'VAL':
-            if self.numVals == 1:
-                return len(self.shape)
-            else:
-                return len(self.shape) - 1
-        if source == 'SLICE':
-            return self.slices[tag].dimensions()
-
-    def getSourceName(self, source, tag):
-        """Source specifies one of ARG, VAL, or SLICE, and tag specifies
-        the number or string specifying the arg, val, or slice."""
-        if source == 'ARG':
-            return self.argNames[tag]
-        if source == 'VAL':
-            return self.valNames[tag]
-        if source == 'SLICE':
-            return tag
-
-    # def getShape
-
-
-    def LoadArgs(self):
-        """Return a list of 1D numpy ndarrays compromising my arguments or independ variables"""
-        return self.dataFile.loadArgs()
-
-    def loadArrayMap(self):
-        """Return a list of my maps, from dependent to independ variables."""
-        return self.dataFile.loadArrayMap()
-
-    def getNumArgs(self):
-        """Return the number of my arguments or independent variables."""
-        return self.numArgs
-
-    def getNumVals(self):
-        """Return the number of my values or dependent variables."""
-        return self.numVals
-
-    def getName(self):
-        """Return the name of the data file."""
-        return self.name
-
-    def setName(self, newName):
-        """Set the name of this DataStream."""
-        self.name = newName
-
-    def getInfo(self):
-        args = self.dataFile.loadArgs()
-        funcMap = self.dataFile.loadArrayMap()
-        self.numArgs = len(args)
-        self.shape = funcMap.shape
-        if self.numArgs == len(self.shape):
-            self.numVals = 1
+    def load_val(self, valName, s=None):
+        f = h5py.File(self.filePath, 'r')
+        path = self.vals[valName]['path']
+        if s is None:
+            data = f[path][..., :]
         else:
-            self.numVals = self.shape[-1]
-        self.argNames = ["arg {}".format(i) for i in range(self.numArgs)]
-        self.valNames = ["val {}".format(i) for i in range(self.numVals)]
+            data = f[path][s]
+        f.close()
+        return data
 
-    def slice(self, sliceStr):
-        """Return a slice through my map specified by PARAMS.
-        PARAMS is a list of pairs specifying the slicing indices for each
-        dimension."""
-        return self.dataFile.slice(sliceStr)
+    def gen_slice(self, valName, sliceDict):
+        """Generate a slice into val VALNAME using the dictionary SLICEDICT
+        which is a dictionary from the names of the axis to the desired axis slice."""
+        argNames = self.get_args_to_val(valName)
+        s = []
+        for argName in argNames:
+            argSlice = sliceDict[argName]
+            if isinstance(argSlice, tuple):
+                argSlice = slice(*argSlice)
+            s += [argSlice]
+        return tuple(s)
+
+    def get_args_to_val(self, valName):
+        """Return the name of all the arguments to the value VALNAME."""
+        return self.vals[valName]['dimScales']
+
+    def get_val_shape(self, valName):
+        return self.vals[valName]['shape']
+
+    def get_arg_shape(self, argName):
+        """Return the shape of arg ARGNAME. Return the first
+        item of shape, since args are 1D."""
+        return self.args[argName]['shape'][0]
 
     def addToTab(self, tab):
         """Add SELF to QTreeWidget TAB.TREE_DATA"""
@@ -125,167 +144,32 @@ class DataStream():
                 baseName = self.name + '({})'
                 self.name = uniqueName(baseName, 1, nameDict.keys())
 
-        parentTW = QtGui.QTreeWidgetItem([self.name])
+        dsTW = QtGui.QTreeWidgetItem([self.name])
 
-        # taking care of my arguments
-        argParentTW = QtGui.QTreeWidgetItem(['Independent Variables'])
-        for arg in range(self.numArgs):
-            if self.argNames[arg] == None:
-                self.argNames[arg] = uniqueName('arg {}', 0, self.argNames)
-            argTW = QtGui.QTreeWidgetItem()
-            argTW.setText(0, self.argNames[arg])
-            argTW.setText(1, str(self.shape[arg]))
-            #
-            # If want to allow arg name edditing, impliment here.
-            #
-            argParentTW.addChild(argTW)
-        parentTW.addChild(argParentTW)
-
-        # taking care of my values
-        valParentTW = QtGui.QTreeWidgetItem(['Dependent Variables'])
-        for val in range(self.numVals):
-            if self.valNames[val] == None:
-                self.valNames[val] = uniqueName('val {}', 0, self.argNames)
+        for valName, valDict in self.vals.iteritems():
             valTW = QtGui.QTreeWidgetItem()
-            valTW.setText(0, self.valNames[val])
-            valTW.setText(1, str(self.shape))
-            #
-            # If want to allow val name edditing, impliment here.
-            #
-            valParentTW.addChild(valTW)
-        parentTW.addChild(valParentTW)
+            valTW.setText(0, valName)
+            valTW.setText(1, str(valDict['shape']))
+            dsTW.addChild(valTW)
 
-        tree.addTopLevelItem(parentTW)
+            #setting fields for action upon right click
+            valTW.isClickable = True
+            valTW.dataType = 'val'
+            valTW.ds = self
 
+            for argName in self.get_args_to_val(valName):
+                argDict = self.args[argName]
+                argTW = QtGui.QTreeWidgetItem()
+                argTW.setText(0, argName)
+                argTW.setText(1, str(argDict['shape']))
+                valTW.addChild(argTW)
 
-class HDF5File():
-
-    def __init__(self, path):
-        self.dataPath = path
-
-    def loadArgs(self):
-        f = h5py.File(self.dataPath, 'r')
-        args = []
-        for name in f['args']:
-            path = 'args/' + name
-            args += [f[path][:]]
-        f.close()
-        return args
-
-    def loadArg(self, n, sliceStr):
-        f = h5py.File(self.dataPath, 'r')
-        args = []
-        for name in f['args']:
-            path = 'args/' + name
-            args += [f[path][:]]
-        f.close()
-
-        if sliceStr != None:
-            return eval("args[n]" + '[' + sliceStr + ']')
-        else:
-            return args[n]
-
-    def loadVal(self, n, sliceStr):
-        return self.slice(sliceStr)
+                #setting fields for action upon right click
+                argTW.isClickable = True
+                argTW.dataType = 'arg'
+                argTW.valName = valName
+                argTW.ds = self
 
 
-    def loadArrayMap(self):
-        f = h5py.File(self.dataPath, 'r')
-        arrayMap = f['vals'][..., :]
-        f.close()
-        return arrayMap
 
-    def slice(self, sliceStr):
-        f = h5py.File(self.dataPath, 'r')
-        dataMap = f['vals']
-        evalStr = "dataMap" + '[' + sliceStr + ']'
-        print(evalStr)
-        dataSlice = eval(evalStr)
-        f.close()
-        return dataSlice
-
-
-class SliceTreeItem(QtGui.QTreeWidgetItem, object):
-
-    """Represents a Slice in a QTreeWidgetItem"""
-
-    def __init__(self, name, parent, dataStream, update):
-        super(SliceTreeItem, self).__init__(parent)
-        self.name = name
-        self.ds = dataStream
-        self.shape = None
-        self.limits = []
-        for i in range(self.ds.numArgs):
-            self.limits += [self.ds.shape[i]]
-        if self.ds.numVals > 1:
-            self.limits += [self.ds.numVals]
-        self.slice = [[0, i] for i in self.limits]
-
-        self.initChildren(update)
-        self.setText(0, name)
-        self.setText(1, self.getSliceStr())
-
-    def initChildren(self, update):
-        updateSlice = lambda: update(self)
-        for arg in range(self.ds.numArgs):
-            argName = self.ds.argNames[arg]
-            argTW = QtGui.QTreeWidgetItem([argName])
-            lineEdit = QtGui.QLineEdit()
-            lineEdit.setText(' : ')
-
-            lineEdit.editingFinished.connect(updateSlice)
-            self.addChild(argTW)
-            self.treeWidget().setItemWidget(argTW, 1, lineEdit)
-
-        if self.ds.numVals > 1: 
-            valTW = QtGui.QTreeWidgetItem(['vals'])
-            lineEdit = QtGui.QLineEdit()
-            lineEdit.setText(' : ')
-            lineEdit.index = self.ds.numArgs
-            lineEdit.editingFinished.connect(updateSlice)
-            self.addChild(valTW)
-            self.treeWidget().setItemWidget(valTW, 1, lineEdit)
-
-        sliceBtnTW = QtGui.QTreeWidgetItem()
-        sliceBtn = QtGui.QPushButton('Print Slice')
-        sliceBtn.clicked.connect(self.printSlice)
-        self.addChild(sliceBtnTW)
-        self.treeWidget().setItemWidget(sliceBtnTW, 0, sliceBtn)
-
-    def printSlice(self):
-        print(self.slice)
-
-    def getSliceStr(self):
-        """Get a string representing my slice."""
-        sliceStr = '['
-        for item in self.slice:
-            if len(item) == 1:
-                sliceStr += '{}, '.format(item[0])
-            elif len(item) == 2:
-                sliceStr += '{} : {}, '.format(item[0], item[1])
-        sliceStr = sliceStr[0:-2]
-        sliceStr += ']'
-        return sliceStr
-
-    def getSlice(self):
-        """Return the actual ndarray that I represent."""
-        sliceStr = self.getSliceStr()
-        return self.ds.slice(sliceStr)
-
-    def dimensions(self):
-        """Return the number of indices needed to index into myself to get a scalar."""
-        dim = 0
-        for item in self.slice:
-            if len(item) != 1:
-                dim += 1
-        return dim
-
-
-def uniqueName(baseName, baseNum, nameList):
-    """Return a new name formed from BASENAME.format(BASENUM) that is not
-    in nameList."""
-    name = baseName.format(baseNum)
-    while name in nameList:
-        baseNum += 1
-        name = baseName.format(baseNum)
-    return name
+        tree.addTopLevelItem(dsTW)

@@ -45,7 +45,30 @@
     </property>
     <addaction name="file_open"/>
    </widget>
+   <widget class="QMenu" name="menuPlot">
+    <property name="title">
+     <string>Current Plot</string>
+    </property>
+    <addaction name="curPlot_zoom_to"/>
+    <addaction name="separator"/>
+    <addaction name="curPlot_cut"/>
+    <addaction name="curPlot_copy"/>
+    <addaction name="curPlot_paste"/>
+    <addaction name="separator"/>
+    <addaction name="actionDelete"/>
+   </widget>
+   <widget class="QMenu" name="menuTab">
+    <property name="title">
+     <string>Tab</string>
+    </property>
+    <addaction name="tab_new_trace"/>
+    <addaction name="tab_new_image"/>
+    <addaction name="separator"/>
+    <addaction name="actionClose_tab"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuTab"/>
+   <addaction name="menuPlot"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="file_open">
@@ -54,6 +77,64 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+O</string>
+   </property>
+  </action>
+  <action name="actionDelete">
+   <property name="text">
+    <string>Delete</string>
+   </property>
+  </action>
+  <action name="curPlot_copy">
+   <property name="text">
+    <string>Copy</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+C</string>
+   </property>
+  </action>
+  <action name="curPlot_paste">
+   <property name="text">
+    <string>Paste</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+V</string>
+   </property>
+  </action>
+  <action name="tab_new_trace">
+   <property name="text">
+    <string>New Trace tab</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+T</string>
+   </property>
+  </action>
+  <action name="tab_new_image">
+   <property name="text">
+    <string>New Image tab</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+I</string>
+   </property>
+  </action>
+  <action name="actionClose_tab">
+   <property name="text">
+    <string>Close tab</string>
+   </property>
+  </action>
+  <action name="curPlot_cut">
+   <property name="text">
+    <string>Cut</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+X</string>
+   </property>
+  </action>
+  <action name="curPlot_zoom_to">
+   <property name="text">
+    <string>Zoom to</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+Z</string>
    </property>
   </action>
  </widget>

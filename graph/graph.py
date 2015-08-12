@@ -2,28 +2,39 @@ import sys
 from PyQt4 import QtCore, QtGui
 import pyqtgraph as pqg
 import numpy as np
-from datastream import DataStream, SliceTreeItem
+from datastream import DataStream
 from graph_ui import Ui_MainWindow
 from tracetab import TraceTab
 from imagetab import ImageTab
-from graphexception import GraphException
 from traceitem import TraceItem
 from imageitem import ImageItem
+import h5py
 from utils import *
 
 
 class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
+
     def __init__(self, parent=None):
         QtGui.QMainWindow.__init__(self, parent)
         self.setupUi(self)
-        self.file_open.triggered.connect(self.loadFile)
         self.traceTabs = {}
         self.imageTabs = {}
         self.dataStreams = {}
-        self.dataSources = {}        
+        self.dataSources = {}
+        self.plotToPaste = None
+        self.plotWasCut = False
+
+        # Connecting the menu bar
+        self.file_open.triggered.connect(self.loadFile)
+        self.curPlot_copy.triggered.connect(self.copy_plot)
+        self.curPlot_cut.triggered.connect(self.cut_plot)
+        self.curPlot_paste.triggered.connect(self.paste_plot)
+        self.curPlot_zoom_to.triggered.connect(self.zoom_to)
+        self.tab_new_image.triggered.connect(self.addImageTab)
+        self.tab_new_trace.triggered.connect(self.addTraceTab)
 
         self.comboNewTab = QtGui.QComboBox()
-        self.comboNewTab.addItems(["Trace Tab", "Image Tab"]) 
+        self.comboNewTab.addItems(["Trace Tab", "Image Tab"])
         self.comboNewTab.activated.connect(self.newTab)
         self.tabWidget.setCornerWidget(self.comboNewTab)
         self.tabWidget.tabCloseRequested.connect(self.closeTab)
@@ -31,16 +42,66 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.addTraceTab()
         self.addImageTab()
 
+        self.first = True
+        self.loadFile()
+
+        self.tabWidget.setCurrentIndex(0)
+
+    def copy_plot(self):
+        self.plotWasCut = False
+        tab = self.tabWidget.currentWidget()
+        if isinstance(tab, TraceTab):
+            self.plotToPaste = tab.curTrace
+        if isinstance(tab, ImageTab):
+            tab.curImage.gradient = tab.plot.getHistogramWidget().gradient.saveState()
+            tab.curImage.levels = tab.plot.getHistogramWidget().getLevels()
+            tab.curImage.savedGradient = tab.gradient_isocurve.saveState()
+            if tab.plot.axes.get('t', None) is not None:
+                tab.curImage.time = tab.plot.timeLine.value()
+
+            self.plotToPaste = tab.curImage
+
+    def paste_plot(self):
+        if self.plotToPaste is None:
+            return
+        tab = self.tabWidget.currentWidget()
+        tab.paste_plot(self.plotToPaste)
+
+        if self.plotWasCut:
+            self.plotWasCut = False
+            self.plotToPaste.delete()
+
+    def cut_plot(self):
+        self.copy_plot()
+        self.plotWasCut = True
+
+    def zoom_to(self):
+        tab = self.tabWidget.currentWidget()
+        tab.zoom_to_current()
+
+
     def closeTab(self, index):
         tab = self.tabWidget.widget(index)
+
+        if self.tabWidget.currentIndex() == index:
+            nextIndex = index + 1
+            if index == self.tabWidget.count() - 1:
+                nextIndex = index - 1
+            self.tabWidget.setCurrentIndex(nextIndex)
+
         if isinstance(tab, TraceTab):
-            if len(self.traceTabs) == 1:
-                raise GraphException("Cannot close the last trace tab.")
+            if len(self.traceTabs) == 1 and len(self.imageTabs) == 0:
+                raise GraphException("Cannot close the last tab.")
+            tab.deleteTab()
+            self.tabWidget.removeTab(index)
             self.traceTabs.pop(tab.name)
-        # if isinstance(tab, ImageTab):
-        #     ...
-        tab.deleteTab()
-        self.tabWidget.removeTab(index)
+
+        if isinstance(tab, ImageTab):
+            if len(self.imageTabs) == 1 and len(self.traceTabs) == 0:
+                raise GraphException("Cannot close the last tab.")
+            tab.deleteTab()
+            self.tabWidget.removeTab(index)
+            self.imageTabs.pop(tab.name)
 
     def newTab(self, index):
         if index == 0:
@@ -57,6 +118,7 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         tab.setName(uniqueName("Trace Tab {}", 0, self.traceTabs.keys()))
         self.tabWidget.addTab(tab, tab.name)
         self.traceTabs[tab.name] = tab
+        self.tabWidget.setCurrentIndex(self.tabWidget.count() - 1)
 
     def addImageTab(self):
         tab = ImageTab(self)
@@ -67,24 +129,37 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         tab.setName(uniqueName("Image Tab {}", 0, self.imageTabs.keys()))
         self.tabWidget.addTab(tab, tab.name)
         self.imageTabs[tab.name] = tab
-
-    def addImage(self, image):
-        """Add a new image to the list of currently selectable images."""
-        self.curImage = image
-        self.comboBox_selectImage.addItem(image.name)
-        curIndex = len(self.images) - 1
-        self.comboBox_selectImage.setCurrentIndex(curIndex)
-        self.syncButtons()
+        self.tabWidget.setCurrentIndex(self.tabWidget.count() - 1)
 
     def loadFile(self):
-        filePaths = getFilePath()
-        if filePaths is None:
-            return
+        if self.first == True:
+            self.first = False
+            filePaths = ['graph/data/vidTest2.hdf5']
+        else:
+            filePaths = getFilePath()
+            if filePaths is None:
+                return
+
+        filePaths = [str(path) for path in filePaths]
+        nonHDF5 = []
 
         for path in filePaths:
-            ds = DataStream(str(path))
-            self.addDataSource(ds)
-            self.dataStreams[ds.name] = ds
+            if path[-5:] == '.hdf5':
+                f = h5py.File(path, 'r')
+                for dsetName in f:
+                    if 'Type' in f[dsetName].attrs:
+                        if f[dsetName].attrs['Type'] == 'Dataset':
+                            ds = DataStream(path, dsetName)
+                            self.addDataSource(ds)
+                            self.dataStreams[ds.name] = ds
+                f.close()
+            else:
+                nonHDF5 += [path]
+
+        if len(nonHDF5) > 0:
+            nonHDF5 = ', '.join(nonHDF5)
+            raise GraphException(
+                "Cannot load {}. Not HDF5 files.".format(nonHDF5))
 
     def addDataSource(self, ds):
         for tab in self.traceTabs.itervalues():
@@ -94,101 +169,6 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         for tab in self.imageTabs.itervalues():
             ds.addToTab(tab)
             tab.addDataSource(ds)
-
-    def removeSources(self, sourcePaths):
-        """for for each path in SOURCEPATHS remove path from the combo boxes."""
-        for path in sourcePaths:
-            for trace in self.traces.itervalues():
-                for comboBox in trace.comboBoxes:
-                    index = comboBox.findText(path)
-                    if index != -1:
-                        comboBox.removeItem(index)
-
-            for image in self.images.itervalues():
-                for comboBox in image.comboBoxes:
-                    index = comboBox.findText(path)
-                    if index != -1:
-                        comboBox.removeItem(index)
-
-    def updateSources(self, sourcePaths):
-        """for for each path in SOURCEPATHS remove path from the combo boxes
-        and then re-add it to the appropriate ones."""
-        self.removeSources(sourcePaths)
-        self.addSources(sourcePaths)
-
-    def sourceNames(self, *dims):
-        """Return a list of current data source (args, vals, slices) names
-        of dimension DIM."""
-        names = []
-        for ds, source, tag in self.dataSources.values():
-            if ds.getSourceDim(source, tag) in dims:
-                name = ds.name + '.'
-                name += ds.getSourceName(source, tag)
-                names += [name]
-
-        return names
-
-    def treeItemClicked(self, item, column):
-        """Handles a click in column COLUMN of item ITEM in SELF.TREE_DATA."""
-        return
-
-    
-
-    #########################################
-    #### Methods Dealing with Plot Table ####
-    #########################################
-
-    def setImageData(self, image, dataPath):
-        ds, source, tag = self.dataSources[str(dataPath)]
-
-        if ds.getSourceDim(source, tag) not in (2, 3, 4):
-            raise GraphException("Can only create images with 2-4D data.")
-
-        image.setData(ds, source, tag)
-
-    def setImageName(self, image, name, lineEdit):
-        oldName = image.name
-        if name in self.images.keys():
-            lineEdit.setText(oldName)
-            raise GraphException("Duplicate names not allowed.")
-        else:
-            self.images.pop(oldName)
-            image.setName(name)
-            self.images[image.name] = image
-            index = self.comboBox_selectImage.findText(oldName)
-            self.comboBox_selectImage.setItemText(index, name)
-
-    def toggleUpdate(self, sc):
-        raise NotImplementedError()
-
-    def toggleShowImage(self, image, checkBox):
-        if checkBox.isChecked():
-            self.addImage(image)
-        else:
-            image.removeFrom(self.image)
-            index = self.comboBox_selectPlot.findText(image.name)
-            self.comboBox_selectImage.removeItem(index)
-
-    ##########################################
-    #### Methods dealing with the plot tab ###
-    ##########################################
-
-    def selectCurImage(self):
-        """Change the current visible Image to that in the COMBOBOX_SELECTPLOT."""
-        name = self.comboBox_selectImage.currentText()
-        self.changeToImage(name)
-
-    def changeToImage(self, name):
-        name = str(name)
-        index = self.comboBox_selectImage.findText(name, QtCore.Qt.MatchExactly)
-        if name not in self.images.keys():
-            raise GraphException("Cannot find trace {}.".format(name))
-        if index < 0:
-            raise GraphException("Cannot find trace {} in ComboBox.".format(name))
-
-        img = self.images[name]
-        self.image.setImage(img.getData())
-        self.comboBox_selectImage.setCurrentIndex(index)
 
 
 pqg.setConfigOptions(background='w')
