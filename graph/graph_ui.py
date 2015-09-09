@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'graph/graph.ui'
 #
-# Created: Wed Aug 05 16:08:05 2015
+# Created: Fri Sep 04 15:59:10 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -46,6 +46,8 @@ class Ui_MainWindow(object):
         self.menuPlot.setObjectName(_fromUtf8("menuPlot"))
         self.menuTab = QtGui.QMenu(self.menubar)
         self.menuTab.setObjectName(_fromUtf8("menuTab"))
+        self.menuView = QtGui.QMenu(self.menubar)
+        self.menuView.setObjectName(_fromUtf8("menuView"))
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtGui.QStatusBar(MainWindow)
         self.statusbar.setObjectName(_fromUtf8("statusbar"))
@@ -68,6 +70,14 @@ class Ui_MainWindow(object):
         self.curPlot_cut.setObjectName(_fromUtf8("curPlot_cut"))
         self.curPlot_zoom_to = QtGui.QAction(MainWindow)
         self.curPlot_zoom_to.setObjectName(_fromUtf8("curPlot_zoom_to"))
+        self.view_side_bar = QtGui.QAction(MainWindow)
+        self.view_side_bar.setCheckable(True)
+        self.view_side_bar.setChecked(True)
+        self.view_side_bar.setObjectName(_fromUtf8("view_side_bar"))
+        self.view_gutter = QtGui.QAction(MainWindow)
+        self.view_gutter.setCheckable(True)
+        self.view_gutter.setChecked(True)
+        self.view_gutter.setObjectName(_fromUtf8("view_gutter"))
         self.menuFile.addAction(self.file_open)
         self.menuPlot.addAction(self.curPlot_zoom_to)
         self.menuPlot.addSeparator()
@@ -80,9 +90,12 @@ class Ui_MainWindow(object):
         self.menuTab.addAction(self.tab_new_image)
         self.menuTab.addSeparator()
         self.menuTab.addAction(self.actionClose_tab)
+        self.menuView.addAction(self.view_side_bar)
+        self.menuView.addAction(self.view_gutter)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuTab.menuAction())
         self.menubar.addAction(self.menuPlot.menuAction())
+        self.menubar.addAction(self.menuView.menuAction())
 
         self.retranslateUi(MainWindow)
         self.tabWidget.setCurrentIndex(-1)
@@ -93,6 +106,7 @@ class Ui_MainWindow(object):
         self.menuFile.setTitle(_translate("MainWindow", "File", None))
         self.menuPlot.setTitle(_translate("MainWindow", "Current Plot", None))
         self.menuTab.setTitle(_translate("MainWindow", "Tab", None))
+        self.menuView.setTitle(_translate("MainWindow", "View", None))
         self.file_open.setText(_translate("MainWindow", "Open", None))
         self.file_open.setShortcut(_translate("MainWindow", "Ctrl+O", None))
         self.actionDelete.setText(_translate("MainWindow", "Delete", None))
@@ -109,4 +123,6 @@ class Ui_MainWindow(object):
         self.curPlot_cut.setShortcut(_translate("MainWindow", "Ctrl+X", None))
         self.curPlot_zoom_to.setText(_translate("MainWindow", "Zoom to", None))
         self.curPlot_zoom_to.setShortcut(_translate("MainWindow", "Alt+Z", None))
+        self.view_side_bar.setText(_translate("MainWindow", "Side Bar", None))
+        self.view_gutter.setText(_translate("MainWindow", "Gutter", None))
 

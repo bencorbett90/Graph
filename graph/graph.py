@@ -32,6 +32,8 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.curPlot_zoom_to.triggered.connect(self.zoom_to)
         self.tab_new_image.triggered.connect(self.addImageTab)
         self.tab_new_trace.triggered.connect(self.addTraceTab)
+        self.view_side_bar.triggered.connect(self.show_side_bar)
+        # self.view_gutter.triggered.connect(self.show_gutter)
 
         self.comboNewTab = QtGui.QComboBox()
         self.comboNewTab.addItems(["Trace Tab", "Image Tab"])
@@ -43,6 +45,13 @@ class MyWindowClass(QtGui.QMainWindow, Ui_MainWindow):
         self.addImageTab()
 
         self.tabWidget.setCurrentIndex(0)
+
+    def show_side_bar(self):
+        tab = self.tabWidget.currentWidget()
+        if self.view_side_bar.isChecked():
+            tab.splitter_side_bar.setSizes([1, 4])
+        else:
+            tab.splitter_side_bar.setSizes([0, 1])
 
     def copy_plot(self):
         self.plotWasCut = False

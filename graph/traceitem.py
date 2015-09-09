@@ -47,6 +47,15 @@ class TraceItem(PlotDataItem):
         TraceItem.count += 1
         self.curve.setClickable(30)
 
+        self.scatter.sigClicked.connect(self.scatterClicked)
+
+    def scatterClicked(self, plot, points):
+        print("Plot clicked!")
+        for p in points:
+            print("     {}, {}".format(p.pos()[0], p.pos()[1]))
+
+
+
     def copy_data(self, other):
         """Set myself to a copy of OTHER which is also a TraceItem."""
         if isinstance(other, TraceItem):
@@ -407,6 +416,11 @@ class TraceItem(PlotDataItem):
 
         self.setData(x=x, y=y, symbol=self.symbol, symbolBrush=self.pointColor,
                      symbolSize=pointSize, pen=LinePen, pxMode=self.pxMode)
+
+    def printPoint(self, *args):
+        print("Points clicked")
+        for arg in args:
+            print(arg)
 
     def onClick(self, f):
         """Call F whenever SELF is clicked."""

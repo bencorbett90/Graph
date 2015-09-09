@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'graph/imagetab.ui'
 #
-# Created: Tue Aug 04 14:12:13 2015
+# Created: Fri Sep 04 15:58:48 2015
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -34,10 +34,10 @@ class Ui_Form(object):
         Form.setSizePolicy(sizePolicy)
         self.verticalLayout_6 = QtGui.QVBoxLayout(Form)
         self.verticalLayout_6.setObjectName(_fromUtf8("verticalLayout_6"))
-        self.splitter_2 = QtGui.QSplitter(Form)
-        self.splitter_2.setOrientation(QtCore.Qt.Horizontal)
-        self.splitter_2.setObjectName(_fromUtf8("splitter_2"))
-        self.layoutWidget = QtGui.QWidget(self.splitter_2)
+        self.splitter_side_bar = QtGui.QSplitter(Form)
+        self.splitter_side_bar.setOrientation(QtCore.Qt.Horizontal)
+        self.splitter_side_bar.setObjectName(_fromUtf8("splitter_side_bar"))
+        self.layoutWidget = QtGui.QWidget(self.splitter_side_bar)
         self.layoutWidget.setObjectName(_fromUtf8("layoutWidget"))
         self.verticalLayout = QtGui.QVBoxLayout(self.layoutWidget)
         self.verticalLayout.setMargin(0)
@@ -274,7 +274,7 @@ class Ui_Form(object):
         self.btn_new_isocurve.setMaximumSize(QtCore.QSize(16777215, 25))
         self.btn_new_isocurve.setObjectName(_fromUtf8("btn_new_isocurve"))
         self.verticalLayout.addWidget(self.btn_new_isocurve)
-        self.splitter = QtGui.QSplitter(self.splitter_2)
+        self.splitter = QtGui.QSplitter(self.splitter_side_bar)
         self.splitter.setOrientation(QtCore.Qt.Vertical)
         self.splitter.setObjectName(_fromUtf8("splitter"))
         self.plot = ImageView(self.splitter)
@@ -524,7 +524,7 @@ class Ui_Form(object):
         self.checkBox_y_slice.setObjectName(_fromUtf8("checkBox_y_slice"))
         self.verticalLayout_8.addWidget(self.checkBox_y_slice)
         self.horizontalLayout_2.addLayout(self.verticalLayout_8)
-        self.verticalLayout_6.addWidget(self.splitter_2)
+        self.verticalLayout_6.addWidget(self.splitter_side_bar)
 
         self.retranslateUi(Form)
         QtCore.QMetaObject.connectSlotsByName(Form)
